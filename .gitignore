@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+e2e-output/
+data/
+tools/cloudflared
+tools/cloudflared.exe

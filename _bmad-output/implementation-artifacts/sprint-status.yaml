@@ -1,0 +1,59 @@
+# BMAD sprint status — ETHERFALL
+generated: 2026-10-12
+project: etherfall
+current_sprint: 1
+development_status:
+  epic-1: done
+  1-1-stack-adrs: done
+  1-2-monorepo-tooling: done
+  1-3-protocol-room: done
+  1-4-data-model-draft: done
+  1-5-readme: done
+  epic-2: done
+  2-1-ascii-pipeline: done
+  2-2-glyph-atlas: done
+  2-3-procedural-world: done
+  2-4-wind-vegetation: done
+  2-5-water-reflections: done
+  2-6-lights-day-night: done
+  2-7-camera: done
+  2-8-perf-metrics: done
+  epic-3: in-progress
+  3-1-physics: done
+  3-2-input: done
+  3-3-combat-core: done
+  3-4-enemies: done
+  3-5-class-abilities: done          # Q/E/1-4 (R undefined)
+  3-6-xp-levels: done
+  3-7-essence-mark: done
+  3-8-status-effects: done
+  3-9-actor-rig-visuals: done       # 2D skeletal rig, user reference video
+  3-10-painted-sprites-fine-ascii: done
+  3-11-healer-class: done
+  3-12-castle-dungeon-portals: done
+  3-13-weather-grass-physics-minimap: done
+  3-14-giant-spider: done
+  3-15-3d-actor-layer: done          # hybrid: ASCII world + three.js actors (Dark Eden / Diablo II look)
+  3-16-talents-subclasses: done      # 3 branches x 4 nodes per class, subclass at level 10
+  3-17-bonfire-seats-weather: done   # log seats + sit, dry start ~30% rain, no rain indoors
+  3-18-combat-numbers-vampire: done  # Ragnarok-style numbers, Nobre Vampirico
+  3-19-pixel-art-actors: done        # 3D rigs rendered as pixel-art sprites (outline, palette, dither)
+  3-20-four-new-classes: done        # ranger, rogue, barbarian, warlock + talents/subclasses
+  3-21-dot-stealth-empower: done     # poison/curse DoT, stealth/ambush, empower, drain, volleys
+  3-22-bone-colossus: done           # epic giant enemy
+  3-23-warlock-summons: done         # imps + abyssal guardian (R), allied AI, kill credit
+  3-24-pose-blending: done           # smoother animation
+  3-25-ascii-3d-world: done          # whole world in 3D + fine ASCII post (user's reference video), grass strokes, 2x actor glyphs
+  epic-4: backlog
+  epic-5: in-progress               # WebSocket server, accounts, saves (0.7); prediction/reconciliation next
+  epic-6: backlog
+  epic-7: backlog
+next_story: 6-1-coop-boss          # user asked for a coop boss (giant multi-legged reference)
+notes:
+  - 0.2 fixed stale depth buffer (actors invisible on real GPUs), verified on RTX 3050 / D3D11
+  - added procedural bonfire music
+  - 0.4 painted sprite parts + 2x fine actor ASCII layer; world 224 m; verified RTX 3050 165 FPS
+  - 0.5 hybrid 3D actors (three.js overlay, ortho 35 deg mapped to ASCII pixels), talents/subclasses, RO damage numbers
+  - 0.6 pixel-art actors, 7 classes, DoT/stealth mechanics, Colosso de Ossos giant
+  - 0.7 online server (accounts, saved characters, LAN), offline saves, respec, warlock summons
+  - 0.8 'ASCII MMORPG' look: 3D world + fine ASCII filter, wind-combed grass strokes, rain streaks, mono HUD

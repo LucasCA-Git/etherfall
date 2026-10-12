@@ -1,0 +1,31 @@
+{
+  "name": "etherfall",
+  "private": true,
+  "version": "0.8.3",
+  "description": "ETHERFALL — ASCII Souls Online (MMORPG 2D soulslike com renderização ASCII por GPU)",
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "packages/client",
+    "packages/server"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @etherfall/client",
+    "build": "npm run typecheck && npm run build -w @etherfall/client && npm run build -w @etherfall/server",
+    "build:single": "npm run build && node tools/inline-build.mjs packages/client/dist packages/client/dist/etherfall.html",
+    "typecheck": "tsc -p packages/shared && tsc -p packages/client && tsc -p packages/server",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "e2e": "node packages/client/e2e/smoke.mjs",
+    "server": "node packages/server/dist/server.mjs",
+    "start": "npm run build && npm run server"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "3.2.7",
+    "@vitest/coverage-v8": "3.2.7",
+    "playwright-core": "1.56.0"
+  }
+}

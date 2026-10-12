@@ -1,0 +1,10 @@
+# Online server: http://localhost:8080 (and http://<IP-da-máquina>:8080 na rede local).
+# Accounts and characters persist in ./data/accounts.json.
+services:
+  etherfall:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
