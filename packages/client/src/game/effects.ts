@@ -1,6 +1,7 @@
-import { SUBCLASS_LEVEL, Tile, tileAt, type EntitySnap, type Prop, type SimEvent, type WorldData } from '@etherfall/shared';
+import { ACTIONS, Tile, tileAt, type EntitySnap, type Prop, type SimEvent, type WorldData } from '@etherfall/shared';
 import type { AudioEngine } from '../audio/audio';
 import { projectileStyle } from '../render/actors';
+import { ELEMENT_RGB } from '../render/elements';
 import type { Hud } from '../hud/hud';
 import type { Overlay } from '../hud/overlay';
 import { InstanceBatch, Shape, type RGB } from '../render/instances';
@@ -8,6 +9,16 @@ import { Mat } from '../render/materials';
 import type { Light } from '../render/renderer';
 import type { Camera } from './camera';
 import { Particles } from './particles';
+
+/** Ring colours of the skill-tree zones (outer, inner). */
+const ZONE_COLORS: Record<string, [RGB, RGB]> = {
+  thorns: [[0.45, 0.75, 0.3], [0.6, 0.5, 0.25]],
+  poison: [[0.4, 1.0, 0.3], [0.25, 0.6, 0.2]],
+  illusion: [[0.85, 0.6, 1.0], [0.6, 0.85, 1.0]],
+  fire: [[1.0, 0.5, 0.15], [1.0, 0.8, 0.3]],
+  banner: [[0.95, 0.7, 0.35], [1.0, 0.9, 0.6]],
+};
+
 
 interface TransientLight extends Light {
   born: number;
@@ -35,7 +46,7 @@ export class Effects {
   private projNames = new Map<number, string>();
   private arrowsFalling: Array<{ x: number; y: number; born: number }> = [];
   private voidClaws: Array<{ x: number; y: number; born: number; r: number }> = [];
-  private bolts: Array<{ pts: Array<[number, number]>; born: number; x: number; y: number }> = [];
+  private bolts: Array<{ pts: Array<[number, number]>; born: number; x: number; y: number; color?: RGB }> = [];
   flash = 0;
   flashColor: RGB = [1, 1, 1];
   lastTargetId = -1;
@@ -78,8 +89,8 @@ export class Effects {
         case 'hit': {
           if (ev.dot) {
             // poison / curse ticks: small rising numbers, no blood, no shake
-            this.overlay.combat(ev.x + (rand() - 0.5) * 0.6, ev.y - 1.0, 'dot', `${ev.amount}`, ev.dot === 'poison' ? '#8dff5a' : '#c98aff');
-            this.particles.burst(4, ev.x, ev.y - 0.5, -Math.PI / 2, 1.2, 1.2, 1.5, 0.8, 0.06, ev.dot === 'poison' ? [0.4, 1, 0.3] : [0.7, 0.35, 1], Mat.Magic, rand, { emis: 0.8, grav: -0.6 });
+            this.overlay.combat(ev.x + (rand() - 0.5) * 0.6, ev.y - 1.0, 'dot', `${ev.amount}`, ev.dot === 'poison' ? '#8dff5a' : ev.dot === 'burn' ? '#ff9a3d' : '#c98aff');
+            this.particles.burst(4, ev.x, ev.y - 0.5, -Math.PI / 2, 1.2, 1.2, 1.5, 0.8, 0.06, ev.dot === 'poison' ? [0.4, 1, 0.3] : ev.dot === 'burn' ? [1, 0.5, 0.15] : [0.7, 0.35, 1], ev.dot === 'burn' ? Mat.Fire : Mat.Magic, rand, { emis: 0.8, grav: -0.6 });
             break;
           }
           const victim = byId.get(ev.target);
@@ -190,7 +201,7 @@ export class Effects {
         case 'levelUp':
           if (ev.id === me) {
             A.play('levelUp');
-            this.hud.message(ev.level === SUBCLASS_LEVEL ? `Nível ${ev.level}! Subclasse liberada — abra os talentos (K)` : `Nível ${ev.level}! +3 atributos (C) · +1 talento (K)`, 'good');
+            this.hud.message(`Nível ${ev.level}! +3 atributos (C) · +1 ponto na árvore de habilidades (K)`, 'good');
             this.hud.toast(`NÍVEL ${ev.level}`);
             this.flash = 0.12;
             this.flashColor = [1, 0.85, 0.45];
@@ -249,13 +260,34 @@ export class Effects {
         case 'strikeWarn':
           {
             const cls = byId.get(ev.ownerId)?.classId;
-            const color: RGB = cls === 'ranger' ? [0.85, 0.65, 0.35] : cls === 'warlock' ? [0.45, 0.95, 0.5] : [0.42, 0.55, 0.85];
+            const el = ACTIONS[ev.actionId]?.element;
+            const color: RGB = el ? ELEMENT_RGB[el] : cls === 'ranger' ? [0.85, 0.65, 0.35] : cls === 'warlock' ? [0.45, 0.95, 0.5] : [0.42, 0.55, 0.85];
             this.warns.push({ x: ev.x, y: ev.y, r: ev.radius, born: time, until: time + ev.ticks / 30, color });
           }
           break;
         case 'strike': {
           const owner = byId.get(ev.ownerId);
-          if (owner?.classId === 'ranger') {
+          const el = ACTIONS[ev.actionId]?.element;
+          if (el === 'fire') {
+            // meteor: a burning rock out of the sky, a ring of fire and embers
+            this.bolts.push({ pts: [[ev.x + 3, ev.y - 12], [ev.x + 1.5, ev.y - 6], [ev.x, ev.y]], born: time, x: ev.x, y: ev.y, color: [1, 0.55, 0.2] });
+            this.particles.burst(40, ev.x, ev.y - 0.2, -Math.PI / 2, 2.4, 7, 5, 1.0, 0.09, [1, 0.5, 0.15], Mat.Fire, rand, { emis: 1, grav: 1.5 });
+            this.particles.burst(16, ev.x, ev.y, 0, Math.PI * 2, 3, 1, 1.4, 0.18, [0.2, 0.17, 0.15], Mat.Dust, rand, { grav: -0.2 });
+            this.tLights.push({ x: ev.x, y: ev.y - 0.6, radius: 11, intensity: 2.8, color: [1, 0.5, 0.2], born: time, life: 0.6 });
+            this.pulses.push({ x: ev.x, y: ev.y, t0: time, r: ev.radius });
+            this.warns = this.warns.filter((w) => Math.hypot(w.x - ev.x, w.y - ev.y) > 0.05);
+            this.camera.addTrauma(0.4);
+            A.play('thunder', ev.x, ev.y, 0.8);
+            break;
+          }
+          if (el === 'shadow') {
+            this.voidClaws.push({ x: ev.x, y: ev.y, born: time, r: ev.radius });
+            this.particles.burst(24, ev.x, ev.y - 0.4, -Math.PI / 2, 1.4, 5, 4, 0.9, 0.08, [0.65, 0.45, 1], Mat.Magic, rand, { emis: 1, grav: -1 });
+            this.warns = this.warns.filter((w) => Math.hypot(w.x - ev.x, w.y - ev.y) > 0.05);
+            A.play('thunder', ev.x, ev.y, 0.5);
+            break;
+          }
+          if (el === 'nature' || (el === undefined && owner?.classId === 'ranger')) {
             // arrow rain: a volley of shafts slamming into the ground
             for (let i = 0; i < 4; i++) {
               const ax = ev.x + (rand() - 0.5) * ev.radius * 1.4;
@@ -287,7 +319,7 @@ export class Effects {
             x += (rand() - 0.5) * 0.9 * (1 - t * 0.6);
             pts.push([i === 14 ? ev.x : x + (ev.x - x) * t * t, top + (ev.y - top) * t]);
           }
-          this.bolts.push({ pts, born: time, x: ev.x, y: ev.y });
+          this.bolts.push({ pts, born: time, x: ev.x, y: ev.y, color: el ? ELEMENT_RGB[el] : undefined });
           this.warns = this.warns.filter((w) => Math.hypot(w.x - ev.x, w.y - ev.y) > 0.05);
           A.play('thunder', ev.x, ev.y);
           this.particles.burst(26, ev.x, ev.y, 0, Math.PI * 2, 6, 5, 0.6, 0.07, [0.75, 0.85, 1], Mat.Spark, rand, { emis: 1 });
@@ -304,6 +336,7 @@ export class Effects {
           if (ev.status === 'slow') this.overlay.float(ev.x, ev.y - 1.9, 'LENTO', '#9fd4ff', 11, 0.9);
           if (ev.status === 'poison') this.overlay.float(ev.x, ev.y - 1.9, 'ENVENENADO', '#8dff5a', 11, 0.9);
           if (ev.status === 'curse') this.overlay.float(ev.x, ev.y - 1.9, 'AMALDIÇOADO', '#c98aff', 11, 0.9);
+          if (ev.status === 'burn') this.overlay.float(ev.x, ev.y - 1.9, 'QUEIMANDO', '#ff9a3d', 11, 0.9);
           if (ev.status === 'empower') {
             A.play('buff', ev.x, ev.y);
             this.overlay.float(ev.x, ev.y - 2.0, 'FÚRIA', '#ff7a4d', 13);
@@ -522,10 +555,11 @@ export class Effects {
         const [x0, y0] = b.pts[i]!;
         const [x1, y1] = b.pts[i + 1]!;
         const len = Math.hypot(x1 - x0, y1 - y0);
-        out.push(Shape.Blade, (x0 + x1) / 2, (y0 + y1) / 2, len / 2, 0.06 + f * 0.04, [1.4, 1.5, 1.8], Mat.Spark, { rot: Math.atan2(y1 - y0, x1 - x0), depthY: b.y + 0.5, emis: 1 });
+        const bc: RGB = b.color ? [b.color[0] * 1.6, b.color[1] * 1.6, b.color[2] * 1.6] : [1.4, 1.5, 1.8];
+        out.push(Shape.Blade, (x0 + x1) / 2, (y0 + y1) / 2, len / 2, 0.06 + f * 0.04, bc, Mat.Spark, { rot: Math.atan2(y1 - y0, x1 - x0), depthY: b.y + 0.5, emis: 1 });
       }
       const r = 0.35 + 0.35 * f;
-      out.push(Shape.Circle, b.x, b.y - 0.3, r, r, [1.2, 1.3, 1.6], Mat.Magic, { depthY: b.y + 0.6, emis: 1 });
+      out.push(Shape.Circle, b.x, b.y - 0.3, r, r, b.color ? [b.color[0] * 1.3, b.color[1] * 1.3, b.color[2] * 1.3] : [1.2, 1.3, 1.6], Mat.Magic, { depthY: b.y + 0.6, emis: 1 });
     }
     for (const z of zones) {
       const left = (z.until - tick) / 30;
@@ -551,8 +585,22 @@ export class Effects {
       }
       const holy = z.kind === 'sanctuary';
       const fel = z.kind === 'soulwell';
-      const c1: RGB = holy ? [1.0, 0.85, 0.45] : fel ? [0.35, 0.95, 0.45] : [0.62, 0.38, 1.0];
-      const c2: RGB = holy ? [1.0, 0.95, 0.7] : fel ? [0.55, 0.25, 0.75] : [0.75, 0.5, 1.0];
+      const zc = ZONE_COLORS[z.kind];
+      const c1: RGB = zc ? zc[0] : holy ? [1.0, 0.85, 0.45] : fel ? [0.35, 0.95, 0.45] : [0.62, 0.38, 1.0];
+      const c2: RGB = zc ? zc[1] : holy ? [1.0, 0.95, 0.7] : fel ? [0.55, 0.25, 0.75] : [0.75, 0.5, 1.0];
+      if (z.kind === 'fire' && rand() < 0.9) {
+        const a = rand() * Math.PI * 2;
+        const rr = Math.sqrt(rand()) * z.r;
+        this.particles.spawn(z.x + Math.cos(a) * rr, z.y + Math.sin(a) * rr * 0.62, 0.05, 0, 0, 1.6, 0.7, 0.07, [1, 0.45 + rand() * 0.3, 0.1], Mat.Fire, { emis: 1, grav: -1.2, drag: 0.6 });
+      } else if (z.kind === 'poison' && rand() < 0.7) {
+        const a = rand() * Math.PI * 2;
+        const rr = Math.sqrt(rand()) * z.r;
+        this.particles.spawn(z.x + Math.cos(a) * rr, z.y + Math.sin(a) * rr * 0.62, 0.2, 0, 0, 0.4, 1.4, 0.3, [0.35, 0.8, 0.25], Mat.Dust, { grav: -0.15, drag: 0.8 });
+      } else if (z.kind === 'thorns' && rand() < 0.5) {
+        const a = rand() * Math.PI * 2;
+        const rr = Math.sqrt(rand()) * z.r;
+        out.push(Shape.Tri, z.x + Math.cos(a) * rr, z.y + Math.sin(a) * rr * 0.62 - 0.15, 0.06, 0.22, [0.45, 0.6, 0.25], Mat.Blade, { depthY: z.y + Math.sin(a) * rr * 0.62 });
+      }
       out.push(Shape.Ring, z.x, z.y, z.r, z.r * 0.62, c1, Mat.Magic, { depthY: -1e6, emis: 0.6 * fadeIn, extra: 0.9, rot: rotA });
       out.push(Shape.Ring, z.x, z.y, z.r * 0.6, z.r * 0.37, c2, Mat.Telegraph, { depthY: -1e6, emis: 0.45 * fadeIn, extra: 0.82, rot: -rotA * 1.5 });
       if (rand() < 0.5) {

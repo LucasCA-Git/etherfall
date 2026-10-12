@@ -1,4 +1,4 @@
-import { talentBonus } from '../data/talents';
+import { slotAction, talentBonus } from '../data/talents';
 import { canStart, forceAction, isDead, startAction } from '../combat/combat';
 import { getAction } from '../data/actions';
 import { CLASSES } from '../data/classes';
@@ -47,13 +47,13 @@ export function updatePlayer(ctx: SimContext, e: Entity): void {
 
   let want: string | null = null;
   if (pressed & Btn.Dodge) want = 'dodge';
-  else if (pressed & Btn.AbilQ) want = cls.abilities.q.action;
-  else if (pressed & Btn.AbilE) want = cls.abilities.e.action;
-  else if (pressed & Btn.Abil1) want = cls.abilities.a1.action;
-  else if (pressed & Btn.Abil2) want = cls.abilities.a2.action;
-  else if (pressed & Btn.Abil3) want = cls.abilities.a3.action;
-  else if (pressed & Btn.Abil4) want = cls.abilities.a4.action;
-  else if (pressed & Btn.Ultimate && cls.abilities.r) want = cls.abilities.r.action;
+  else if (pressed & Btn.AbilQ) want = slotAction(e.classId, e.loadout, e.talents, 'q');
+  else if (pressed & Btn.AbilE) want = slotAction(e.classId, e.loadout, e.talents, 'e');
+  else if (pressed & Btn.Abil1) want = slotAction(e.classId, e.loadout, e.talents, 'a1');
+  else if (pressed & Btn.Abil2) want = slotAction(e.classId, e.loadout, e.talents, 'a2');
+  else if (pressed & Btn.Abil3) want = slotAction(e.classId, e.loadout, e.talents, 'a3');
+  else if (pressed & Btn.Abil4) want = slotAction(e.classId, e.loadout, e.talents, 'a4');
+  else if (pressed & Btn.Ultimate) want = slotAction(e.classId, e.loadout, e.talents, 'r');
   else if (pressed & Btn.Heavy) want = cls.heavyAction;
   else if (pressed & Btn.Light) want = cls.lightAction;
 
@@ -94,7 +94,9 @@ export function updatePlayer(ctx: SimContext, e: Entity): void {
       } else {
         let dir = cmd.aim;
         let mul = 1;
-        if (candidate === 'dodge' || candidate === cls.abilities.e.action) {
+        // movement skills (dodge, the class E dash, pure dashes like Teleporte) follow the stick
+        const dash = def.lunge !== undefined && !def.hit && !def.projectile && def.lunge.speed > 0;
+        if (candidate === 'dodge' || candidate === cls.abilities.e.action || dash) {
           if (moving) dir = Math.atan2(my, mx);
           else if (candidate === 'dodge') {
             dir = cmd.aim + Math.PI; // backstep

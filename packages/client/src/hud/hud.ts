@@ -1,4 +1,5 @@
-import { CLASSES, getAction, type ClassId, type EntitySnap } from '@etherfall/shared';
+import { CLASSES, getAction, slotAction, type AbilitySlot, type ClassId, type EntitySnap } from '@etherfall/shared';
+import { actionIconUrl } from './icons';
 import { prettyKey, type KeyMap } from '../input/keymap';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] => {
@@ -37,8 +38,18 @@ function setBar(b: Bar, v: number, max: number, text = true): void {
 interface Slot {
   root: HTMLElement;
   cd: HTMLElement;
+  icon: HTMLImageElement;
+  lbl: HTMLElement;
   actionId?: string;
+  /** Re-assignable ability slot (Q, E, 1–4, R); fixed slots (attacks, dodge) have none. */
+  slot?: AbilitySlot;
+  tip?: string;
 }
+
+const tooltip = (actionId: string, text: string): string => {
+  const cost = getAction(actionId);
+  return `${text}${cost.stamina ? ` · ${cost.stamina} stamina` : ''}${cost.mana ? ` · ${cost.mana} mana` : ''}${cost.cooldown ? ` · recarga ${(cost.cooldown / 30).toFixed(1)}s` : ''}`;
+};
 
 /** DOM HUD: vitals, ability bar with cooldowns, target frame, combat log, death screen, perf. */
 export class Hud {
@@ -68,38 +79,31 @@ export class Hud {
     vitals.append(this.name, this.hp.root, this.st.root, this.mp.root, this.xpb.root, this.points);
     const cls = CLASSES[classId];
     const ab = el('div', 'abilities');
-    const defs: Array<[string, string, string | undefined, string]> = [
-      [prettyKey(keymap.light[0] ?? ''), 'Leve', cls.lightAction, 'Ataque leve'],
-      [prettyKey(keymap.heavy[1] ?? keymap.heavy[0] ?? ''), 'Pesado', cls.heavyAction, 'Ataque pesado — segure para carregar'],
-      [prettyKey(keymap.block[0] ?? ''), 'Guarda', undefined, 'Bloquear. Erga no instante do golpe para APARAR.'],
-      [prettyKey(keymap.dodge[0] ?? ''), 'Esquiva', 'dodge', 'Esquiva com invulnerabilidade curta'],
-      ['Q', cls.abilities.q.label, cls.abilities.q.action, cls.abilities.q.description],
-      ['E', cls.abilities.e.label, cls.abilities.e.action, cls.abilities.e.description],
-    ];
-    for (const [key, label, actionId, tip] of defs) {
+    const make = (key: string, label: string, actionId: string | undefined, tip: string, slot?: AbilitySlot) => {
       const s = el('div', 'slot');
-      const cost = actionId ? getAction(actionId) : undefined;
-      s.title = `${tip}${cost?.stamina ? ` · ${cost.stamina} stamina` : ''}${cost?.mana ? ` · ${cost.mana} mana` : ''}${cost?.cooldown ? ` · recarga ${(cost.cooldown / 30).toFixed(1)}s` : ''}`;
+      const icon = el('img', 'slot-icon');
+      icon.alt = '';
+      icon.src = actionIconUrl(actionId ?? 'block', 64);
+      const lbl = el('div', 'lbl', label);
       const cd = el('div', 'cd');
-      s.append(el('div', 'key', key), el('div', 'lbl', label), cd);
+      s.append(icon, el('div', 'key', key), lbl, cd);
+      s.title = actionId ? tooltip(actionId, tip) : tip;
       ab.append(s);
-      this.slots.push({ root: s, cd, actionId });
-    }
-    const extra: Array<[string, { action: string; label: string; description: string }]> = [
-      [prettyKey(keymap.abil1[0] ?? 'Digit1'), cls.abilities.a1],
-      [prettyKey(keymap.abil2[0] ?? 'Digit2'), cls.abilities.a2],
-      [prettyKey(keymap.abil3[0] ?? 'Digit3'), cls.abilities.a3],
-      [prettyKey(keymap.abil4[0] ?? 'Digit4'), cls.abilities.a4],
+      this.slots.push({ root: s, cd, icon, lbl, actionId, slot, tip });
+    };
+    make(prettyKey(keymap.light[0] ?? ''), 'Leve', cls.lightAction, 'Ataque leve');
+    make(prettyKey(keymap.heavy[1] ?? keymap.heavy[0] ?? ''), 'Pesado', cls.heavyAction, 'Ataque pesado — segure para carregar');
+    make(prettyKey(keymap.block[0] ?? ''), 'Guarda', undefined, 'Bloquear. Erga no instante do golpe para APARAR.');
+    make(prettyKey(keymap.dodge[0] ?? ''), 'Esquiva', 'dodge', 'Esquiva com invulnerabilidade curta');
+    const keys: Array<[AbilitySlot, string]> = [
+      ['q', 'Q'], ['e', 'E'],
+      ['a1', prettyKey(keymap.abil1[0] ?? 'Digit1')], ['a2', prettyKey(keymap.abil2[0] ?? 'Digit2')],
+      ['a3', prettyKey(keymap.abil3[0] ?? 'Digit3')], ['a4', prettyKey(keymap.abil4[0] ?? 'Digit4')],
+      ['r', prettyKey(keymap.ultimate[0] ?? 'KeyR')],
     ];
-    if (cls.abilities.r) extra.push([prettyKey(keymap.ultimate[0] ?? 'KeyR'), cls.abilities.r]);
-    for (const [key, ab2] of extra) {
-      const s = el('div', 'slot');
-      const cost = getAction(ab2.action);
-      s.title = `${ab2.description}${cost.stamina ? ` · ${cost.stamina} stamina` : ''}${cost.mana ? ` · ${cost.mana} mana` : ''}${cost.cooldown ? ` · recarga ${(cost.cooldown / 30).toFixed(1)}s` : ''}`;
-      const cd = el('div', 'cd');
-      s.append(el('div', 'key', key), el('div', 'lbl', ab2.label), cd);
-      ab.append(s);
-      this.slots.push({ root: s, cd, actionId: ab2.action });
+    for (const [slot, key] of keys) {
+      const def = cls.abilities[slot];
+      make(key, def?.label ?? '—', def?.action, def?.description ?? 'Vazio: equipe uma habilidade da árvore (K).', slot);
     }
     this.target.append(this.targetName, this.targetBar.root);
     this.death.append(el('div', 'death-text', 'VOCÊ PERECEU'), el('div', 'death-sub', 'Retornando à última fogueira…'));
@@ -122,6 +126,19 @@ export class Hud {
     this.points.classList.toggle('hidden', pts <= 0);
     this.points.textContent = `+${pts} ponto${pts > 1 ? 's' : ''} de atributo · C para distribuir`;
     for (const s of this.slots) {
+      if (s.slot) {
+        // the loadout may have changed (skills equipped from the tree)
+        const id = slotAction(this.classId, me.loadout ?? {}, me.talents ?? {}, s.slot) ?? undefined;
+        if (id !== s.actionId) {
+          s.actionId = id;
+          const a = id ? getAction(id) : undefined;
+          const kit = Object.values(CLASSES[this.classId].abilities).find((x) => x?.action === id);
+          s.lbl.textContent = kit?.label ?? a?.name ?? '—';
+          s.icon.src = id ? actionIconUrl(id, 64) : actionIconUrl('block', 64);
+          s.icon.style.opacity = id ? '1' : '0.25';
+          s.root.title = id ? tooltip(id, kit?.description ?? a?.desc ?? a?.name ?? '') : 'Vazio: equipe uma habilidade da árvore (K).';
+        }
+      }
       if (!s.actionId) continue;
       const ready = me.cooldowns[s.actionId] ?? 0;
       const def = getAction(s.actionId);

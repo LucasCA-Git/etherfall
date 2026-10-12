@@ -1,6 +1,37 @@
 # ETHERFALL — Progresso
 
-_Última atualização: 12/10/2026 · Entrega 8 (0.8)_
+_Última atualização: 12/10/2026 · Entrega 9 (0.9)_
+
+## 0.9 — heróis com sprites isométricos (Flare)
+- Os 7 heróis jogáveis agora são desenhados a partir das folhas do "Isometric Hero" (Clint Bellanger, Flare, CC-BY-SA 3.0),
+  uma folha por classe montada a partir das camadas de armadura/cabeça/arma (`tools/build-hero-sheets.py`).
+- 8 direções × 32 quadros: parado, corrida, golpe, bloqueio, impacto, morte, conjuração e disparo, ligados às ações reais.
+- Cada herói é um quad virado para a câmera dentro da cena 3D, passando pelo mesmo pós-processo ASCII (contorno e glifos finos).
+- Status (veneno, queimadura, lentidão, maldição, furtividade) tingem o sprite; `?sprites=0` volta aos modelos 3D.
+
+## Novidades da 0.9 — árvores de habilidades livres e ícones (etapa 1 de 3 do "mundo vivo")
+
+- **Árvore livre por classe** (`shared/data/talents.ts`), gerada a partir de dados de três braços:
+  - 76 nós: início, anel de 6 nós, 3 braços de 22 nós e 3 pontes;
+  - cada braço tem atributos, 3 notáveis, 2 habilidades novas e uma pedra angular;
+  - um nó só pode ser comprado se estiver ligado ao que já é seu;
+  - o braço com 5 ou mais pontos vira o título (substitui a antiga subclasse);
+  - saves antigos e adulterados são podados para nós conectados, dentro dos pontos do nível.
+- **42 habilidades novas** (`shared/data/treeskills.ts`), feitas só com dados: projéteis, zonas, golpes do céu, selos, curas e invocações.
+  - Novo status **queimadura** (dano contínuo).
+  - Novas invocações aliadas: Imagem Ilusória, Lobo Espiritual, Cão Infernal e Guerreiro Ancestral.
+- **Atalhos configuráveis:** mensagem `equip` validada pelo servidor; `loadout` salvo no personagem; a barra mostra o que está equipado.
+- **Ícones em arte ASCII** (`client/hud/icons.ts`): 40 motivos 9×9 coloridos pelo elemento, usados na barra de habilidades, nos nós da árvore e na lista de atalhos.
+- **Tela K nova:** grafo em canvas (arrastar e zoom), dica ao passar o mouse, painel lateral com os caminhos e os atalhos.
+- **Visual dos elementos:**
+  - projéteis, zonas (fogo, veneno, espinhos, ilusão, estandarte) e golpes do céu tingidos pelo elemento;
+  - meteoro de fogo e garras de sombra;
+  - invocações espectrais coloridas.
+- **Testes:** grafo conexo e simétrico em todas as classes; regra de vizinhança; atalhos; título; respec; as 42 habilidades executam e têm efeito; queimadura; save adulterado. O E2E compra nós clicando no canvas e equipa Luz Sagrada.
+- **Próximas etapas:**
+  - mapa 3× (672 m) com vilas, castelos e masmorras por nível;
+  - dragões, salamandras e cultistas com ritual de invocação e diálogo;
+  - animais andando e comendo pelo mapa.
 
 ## Novidades da 0.8.3 — jogar pela internet de graça
 

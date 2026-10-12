@@ -44,6 +44,13 @@ const shade = (c: RGB, k: number): RGB => [c[0] * k, c[1] * k, c[2] * k];
 const WHITE: RGB = [1, 1, 1];
 
 /** Phase of an action: 0..1 progress inside windup / active / recovery. */
+/** Body animation of skill-tree actions, by their `anim` family (see ActionDef.anim). */
+const ANIM_ALIAS: Record<string, string> = {
+  slash: 'longsword_light', heavy: 'longsword_heavy', thrust: 'vanguard_charge', throw: 'rogue_knives', shout: 'barb_warcry',
+  spin: 'vanguard_fury', trap: 'ranger_trap', guard: 'vanguard_ironguard', cast: 'arcanist_bolt', castSky: 'arcanist_collapse',
+  castRaise: 'healer_light', castPlant: 'healer_sanctuary', bow: 'bow_shot',
+};
+
 export function actPhase(e: EntitySnap): { id: string; stage: 'windup' | 'active' | 'recovery' | 'none'; k: number; charge: number } {
   if (!e.action) return { id: '', stage: 'none', k: 0, charge: 0 };
   const d = ACTIONS[e.action];
@@ -236,7 +243,8 @@ export function humanPose(e: EntitySnap, anim: AnimState, time: number, style: S
       let leanA = 0.2;
       let cast = false;
       let sky = false;
-      const id = a.id;
+      // skill-tree actions reuse the body animation of a representative kit action
+      const id = ANIM_ALIAS[def.anim ?? ''] ?? a.id;
       if (id.endsWith('_light') && id !== 'healer_light' || id === 'hollow_slash' || id === 'vampire_claw' || id === 'giant_sweep' || id === 'imp_claw' || id === 'guard_cleave') {
         from = second ? -0.4 : 3.5;
         to = second ? 2.4 : 0.55;
@@ -247,12 +255,12 @@ export function humanPose(e: EntitySnap, anim: AnimState, time: number, style: S
         leanA = 0.4;
         p.glow = a.charge;
         cast = style === 'staff';
-      } else if (a.id === 'vanguard_rising') {
+      } else if (id === 'vanguard_rising') {
         from = -0.5;
         to = 3.0;
         leanW = 0.25;
         leanA = -0.1;
-      } else if (a.id === 'vanguard_seismic') {
+      } else if (id === 'vanguard_seismic') {
         from = 3.4;
         to = 1.05;
         leanA = 0.45;
@@ -293,15 +301,15 @@ export function humanPose(e: EntitySnap, anim: AnimState, time: number, style: S
         from = 1.5;
         to = 1.5;
         leanA = 0.2;
-      } else if (a.id === 'vanguard_ironguard') {
+      } else if (id === 'vanguard_ironguard') {
         from = 2.7;
         to = 2.9;
         p.glow = 1;
       } else if (id.startsWith('arcanist_') || id.startsWith('healer_') || id.startsWith('warlock_') || id === 'vampire_bolt' || id === 'imp_bolt') {
         cast = true;
         sky = id === 'arcanist_collapse' || id === 'healer_dawn' || id === 'warlock_abyss' || id === 'warlock_guardian';
-        const raised = a.id === 'healer_light' || a.id === 'healer_aegis' || a.id === 'healer_purify';
-        const planted = a.id === 'healer_sanctuary' || a.id === 'arcanist_icelance';
+        const raised = id === 'healer_light' || id === 'healer_aegis' || id === 'healer_purify';
+        const planted = id === 'healer_sanctuary' || id === 'arcanist_icelance';
         from = sky ? 3.0 : raised ? 2.4 : 1.9;
         to = planted ? 0.75 : sky ? 3.1 : raised ? 2.7 : 1.6;
         leanW = sky ? -0.2 : 0.05;

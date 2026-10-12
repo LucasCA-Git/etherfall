@@ -1,4 +1,4 @@
-import { DT, TICK_RATE, Tile, generateWorld, tileAt, type CharacterSave, type ClassId, type EntitySnap } from '@etherfall/shared';
+import { DT, TICK_RATE, Tile, generateWorld, tileAt, type AbilitySlot, type CharacterSave, type ClassId, type EntitySnap } from '@etherfall/shared';
 import { AudioEngine } from '../audio/audio';
 import { Hud } from '../hud/hud';
 import { WorldMap } from '../hud/map';
@@ -129,12 +129,12 @@ export class Game {
       if (err && err.t === 'error') this.hud.toast(err.message);
       else o.audio.play('ui');
     });
-    const request = (msg: { t: 'talent'; node: string } | { t: 'subclass'; id: string } | { t: 'respec' }) => {
+    const request = (msg: { t: 'talent'; node: string } | { t: 'equip'; slot: AbilitySlot; action: string | null } | { t: 'respec' }) => {
       const err = this.transport.send(msg).find((m) => m.t === 'error');
       if (err && err.t === 'error') this.hud.toast(err.message);
       else o.audio.play('ui');
     };
-    this.talents = new TalentPanel(o.hudRoot, o.classId, (node) => request({ t: 'talent', node }), (id) => request({ t: 'subclass', id }), () => request({ t: 'respec' }));
+    this.talents = new TalentPanel(o.hudRoot, o.classId, (node) => request({ t: 'talent', node }), (slot, action) => request({ t: 'equip', slot, action }), () => request({ t: 'respec' }));
     this.map = new WorldMap(o.hudRoot, world);
     this.minimap = new Minimap(o.hudRoot, world);
     const me = this.transport.room?.sim.entities.get(this.transport.playerId);

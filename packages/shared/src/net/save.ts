@@ -1,7 +1,7 @@
 import { CLASSES } from '../data/classes';
 import { ATTR_MAX, ATTR_POINTS_PER_LEVEL, MAX_LEVEL } from '../data/curves';
-import { SUBCLASSES, findTalent } from '../data/talents';
-import type { AttrKey, Attributes, ClassId, Entity } from '../sim/types';
+import { cleanLoadout, dominantArchetype, pruneTalents } from '../data/talents';
+import type { AbilitySlot, AttrKey, Attributes, ClassId, Entity } from '../sim/types';
 
 /**
  * Persistent character record (server accounts and offline browser saves share it).
@@ -17,6 +17,9 @@ export interface CharacterSave {
   unspent: number;
   attrs: Attributes;
   talents: Record<string, number>;
+  /** Skills chosen for the ability slots (optional in older saves). */
+  loadout?: Partial<Record<AbilitySlot, string>>;
+  /** Title from the dominant skill-tree path (derived). */
   subclass: string | null;
   discovered: string[];
   essenceMark: { x: number; y: number; amount: number } | null;
@@ -52,7 +55,7 @@ export const isClassId = (v: unknown): v is ClassId => typeof v === 'string' && 
 export function newCharacter(id: string, name: string, classId: ClassId, now: number): CharacterSave {
   return {
     v: 1, id, name, classId, level: 1, xp: 0, unspent: 0, attrs: { ...CLASSES[classId].baseAttributes },
-    talents: {}, subclass: null, discovered: [], essenceMark: null, respawn: null, pos: null, createdAt: now, updatedAt: now,
+    talents: {}, loadout: {}, subclass: null, discovered: [], essenceMark: null, respawn: null, pos: null, createdAt: now, updatedAt: now,
   };
 }
 
@@ -69,6 +72,7 @@ export function exportCharacter(e: Entity, prev: CharacterSave, now: number): Ch
     unspent: e.unspent,
     attrs: { ...e.attrs },
     talents: { ...e.talents },
+    loadout: { ...e.loadout },
     subclass: e.subclass,
     discovered: [...e.discovered],
     essenceMark: e.essenceMark ? { ...e.essenceMark } : null,
@@ -113,23 +117,13 @@ export function validateSave(raw: unknown): CharacterSave | null {
     spentAttr = 0;
   }
   const unspent = totalAttr - spentAttr;
-  const talentsIn = (r.talents ?? {}) as Record<string, unknown>;
-  const talents: Record<string, number> = {};
-  let budget = level - 1;
-  for (const [id, v] of Object.entries(talentsIn)) {
-    const t = findTalent(id);
-    if (!t || t.cls !== classId || !finite(v)) continue;
-    const rank = Math.max(0, Math.min(t.node.maxRank, Math.floor(v), budget));
-    if (rank > 0) {
-      talents[id] = rank;
-      budget -= rank;
-    }
-  }
-  for (const id of Object.keys(talents)) {
-    const req = findTalent(id)?.node.requires;
-    if (req && !talents[req]) delete talents[id];
-  }
-  const subclass = typeof r.subclass === 'string' && level >= 10 && SUBCLASSES[classId].some((s) => s.id === r.subclass) ? r.subclass : null;
+  // skill tree: only nodes of this class, connected to the start, within the level's points
+  const talentsIn = (typeof r.talents === 'object' && r.talents !== null ? r.talents : {}) as Record<string, unknown>;
+  const owned: Record<string, number> = {};
+  for (const [id, v] of Object.entries(talentsIn)) if (finite(v) && v > 0) owned[id] = 1;
+  const talents = pruneTalents(classId, owned, level - 1);
+  const loadout = cleanLoadout(classId, r.loadout, talents);
+  const subclass = dominantArchetype(classId, talents);
   const em = r.essenceMark as Record<string, unknown> | null;
   const essenceMark = em && finite(em.x) && finite(em.y) && finite(em.amount) && em.amount > 0 ? { x: em.x, y: em.y, amount: Math.floor(em.amount) } : null;
   const discovered = Array.isArray(r.discovered) ? r.discovered.filter((d): d is string => typeof d === 'string').slice(0, 64) : [];
@@ -143,6 +137,7 @@ export function validateSave(raw: unknown): CharacterSave | null {
     unspent,
     attrs,
     talents,
+    loadout,
     subclass,
     discovered,
     essenceMark,

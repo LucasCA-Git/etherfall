@@ -4,6 +4,7 @@ import { ACTIONS, type EntitySnap, type WorldData } from '@etherfall/shared';
 import { actPhase, humanPose, type AnimState, type HumanPose, type Style } from '../render/rig';
 import type { Light } from '../render/renderer';
 import { PITCH, SIN_P, buildWorld3D, type World3D } from './world3d';
+import { SPRITES_ON, buildSprite, disposeSprite, poseSprite, spriteReady, type SpriteRig } from './sprites3d';
 import { CELL_FS, COMPOSE_FS, FINE_FS, FULL_VS, buildAsciiAtlas } from './asciiPost';
 import { buildHumanoid, buildSpider, buildWolf, disposeRig, setSegment, type ActorRig, type HumanKind, type HumanRig, type SpiderRig, type WolfRig } from './models3d';
 
@@ -28,6 +29,7 @@ export function headOffset(e: EntitySnap): number {
   if (e.enemyId === 'bonegiant') return 4.1;
   if (e.enemyId === 'voidguard') return 3.1;
   if (e.enemyId === 'imp') return 1.3;
+  if (e.enemyId === 'spiritwolf' || e.enemyId === 'felhound') return 1.15;
   if (e.classId === 'barbarian') return 2.05;
   return 1.95;
 }
@@ -73,7 +75,7 @@ export interface ActorFrame {
 }
 
 interface Slot {
-  rig: ActorRig;
+  rig: ActorRig | SpriteRig;
   /** Frames since the entity was last within the keep-alive area (rigs are retired after ~1 s). */
   unseen: number;
   yaw: number;
@@ -125,8 +127,18 @@ function kindOf(e: EntitySnap): 'wolf' | 'spider' | HumanKind {
   if (e.enemyId === 'bonegiant') return 'bonegiant';
   if (e.enemyId === 'imp') return 'imp';
   if (e.enemyId === 'voidguard') return 'voidguard';
-  return 'skeleton';
+  if (e.enemyId === 'spiritwolf' || e.enemyId === 'felhound') return 'wolf';
+  if (e.enemyId === 'phantom') return 'rogue';
+  return 'skeleton'; // hollow, ancestor
 }
+
+/** Spectral summons: a colour wash and a glow so they read as magic, not as the real thing. */
+const SPECTRAL: Record<string, THREE.Color> = {
+  phantom: new THREE.Color(0.85, 0.65, 1.0),
+  spiritwolf: new THREE.Color(0.5, 0.95, 0.9),
+  felhound: new THREE.Color(1.0, 0.45, 0.15),
+  ancestor: new THREE.Color(0.55, 0.95, 0.85),
+};
 
 const STYLE: Record<HumanKind, Style> = {
   vanguard: 'sword', arcanist: 'staff', healer: 'staff', ranger: 'bow', rogue: 'sword', barbarian: 'twohand',
@@ -134,6 +146,7 @@ const STYLE: Record<HumanKind, Style> = {
 };
 const SPIN = new Set(['vanguard_fury', 'barb_whirl', 'rogue_dance']);
 const POISON_TINT = new THREE.Color(0.7, 1.15, 0.6);
+const BURN_TINT = new THREE.Color(1.25, 0.75, 0.5);
 const CURSE_TINT = new THREE.Color(0.85, 0.6, 1.1);
 const EMPOWER = new THREE.Color(0.16, 0.03, 0.0);
 const STEALTH = new THREE.Color(0.035, 0.015, 0.06);
@@ -420,13 +433,15 @@ export class ActorLayer {
         }
         continue;
       }
-      const kind = kindOf(e);
-      if (s && (s.rig.type === 'human' ? s.rig.kind : s.rig.type) !== kind) {
+      const k0 = kindOf(e);
+      // player heroes use the isometric sprite sheets once loaded (sprites3d.ts)
+      const kind = e.kind === 'player' && e.classId && SPRITES_ON && spriteReady(e.classId) ? `sprite:${e.classId}` : k0;
+      if (s && (s.rig.type === 'human' ? s.rig.kind : s.rig.type === 'sprite' ? `sprite:${s.rig.cls}` : s.rig.type) !== kind) {
         this.retire(e.id, s);
         s = undefined;
       }
       if (!s) {
-        const rig = kind === 'wolf' ? buildWolf() : kind === 'spider' ? buildSpider() : buildHumanoid(kind);
+        const rig = kind.startsWith('sprite:') ? buildSprite(e.classId!) : k0 === 'wolf' ? buildWolf() : k0 === 'spider' ? buildSpider() : buildHumanoid(k0);
         s = { rig, unseen: 0, yaw: Math.PI / 2 - e.facing, deadT: 0, block: 0, pose: null };
         this.slots.set(e.id, s);
         for (const m of rig.materials) tagActor(m);
@@ -501,7 +516,8 @@ export class ActorLayer {
 
   private retire(id: number, s: Slot): void {
     this.scene.remove(s.rig.root);
-    disposeRig(s.rig);
+    if (s.rig.type === 'sprite') disposeSprite(s.rig);
+    else disposeRig(s.rig);
     this.slots.delete(id);
   }
 
@@ -551,15 +567,42 @@ export class ActorLayer {
     const warn = e.team !== 0 && def?.telegraph && a.stage === 'windup' ? (def.telegraph === 'danger' ? 1 : 0.45) * a.k : 0;
     const flash = f.tick - e.hitTick < 4 && !e.dead;
     const st = e.statuses ?? [];
-    this.tint(rig, flash, st, e.dead, warn, rig.type === 'spider' ? 0.16 : 0.035);
+    if (rig.type === 'sprite') {
+      this.poseHero(rig, s, e, anim, f, a, flash, st, warn);
+      return;
+    }
+    this.tint(rig, flash, st, e.dead, warn, rig.type === 'spider' ? 0.16 : 0.035, e.enemyId ? SPECTRAL[e.enemyId] : undefined);
 
     if (rig.type === 'human') this.poseHuman(rig, s, e, anim, f, a);
     else if (rig.type === 'wolf') this.poseWolf(rig, s, e, anim, f, a);
     else this.poseSpider(rig, s, e, anim, f, a);
   }
 
+  private heroTint = new THREE.Color();
+  private heroAdd = new THREE.Color();
+  private poseHero(r: SpriteRig, s: Slot, e: EntitySnap, anim: AnimState, f: ActorFrame, a: ReturnType<typeof actPhase>, flash: boolean, st: readonly string[], warn: number): void {
+    const t = this.heroTint.setRGB(1, 1, 1);
+    if (st.includes('slow')) t.multiply(SLOW_TINT);
+    if (st.includes('poison')) t.multiply(POISON_TINT);
+    if (st.includes('burn')) t.multiply(BURN_TINT);
+    if (st.includes('curse')) t.multiply(CURSE_TINT);
+    if (st.includes('stealth')) t.multiplyScalar(0.3);
+    if (e.dead) t.multiplyScalar(0.55);
+    const add = this.heroAdd.setRGB(0, 0, 0);
+    if (flash) add.setRGB(0.6, 0.6, 0.6);
+    else if (warn > 0) add.setRGB(warn * 0.5, warn * 0.08, 0.02);
+    else if (st.includes('empower')) add.copy(EMPOWER).multiplyScalar(2);
+    const [ar, ag, ab] = f.ambient;
+    const light = 0.75 + 0.45 * Math.min(1, Math.max(ar, ag, ab)) + 0.25 * Math.max(0, Math.min(1, f.sunLight)) + f.flash;
+    r.root.position.y = a.id === 'barb_leap' && a.stage === 'active' ? Math.sin(Math.min(1, a.k) * Math.PI) * 1.1 : 0;
+    r.root.rotation.y = 0;
+    const spin = (SPIN.has(a.id) || ACTIONS[a.id]?.anim === 'spin') && a.stage === 'active';
+    poseSprite(r, { e, anim, time: f.time, tick: f.tick, deadT: s.deadT, stage: a.stage, k: a.k, camera: this.camera, spin, light, tint: t, add });
+  }
+
   /** `selfLit`: constant glow added to every material (giant spiders read as pale line-art). */
-  private tint(rig: ActorRig, flash: boolean, st: readonly string[], dead: boolean, warn: number, selfLit: number): void {
+  private tint(rig: ActorRig, flash: boolean, st: readonly string[], dead: boolean, warn: number, selfLit: number, spectral?: THREE.Color): void {
+    const burn = st.includes('burn');
     const slow = st.includes('slow');
     const poison = st.includes('poison');
     const curse = st.includes('curse');
@@ -574,6 +617,8 @@ export class ActorLayer {
       m.color.copy(b.color);
       if (slow) m.color.multiply(SLOW_TINT);
       if (poison) m.color.multiply(POISON_TINT);
+      if (burn) m.color.multiply(BURN_TINT);
+      if (spectral) m.color.lerp(spectral, 0.55).multiplyScalar(0.8);
       if (curse) m.color.multiply(CURSE_TINT);
       if (stealth) m.color.multiplyScalar(0.25);
       if (dead) m.color.multiplyScalar(0.5);
@@ -593,6 +638,7 @@ export class ActorLayer {
       } else {
         // characters are self-lit a little so they read against the dark world (as in the reference)
         m.emissive.copy(b.color).multiplyScalar(1.1).addScalar(selfLit);
+        if (spectral) m.emissive.copy(spectral).multiplyScalar(0.45);
         if (stealth) m.emissive.multiplyScalar(0.2);
         m.emissiveIntensity = dead ? 0.4 : 1;
       }
@@ -606,7 +652,7 @@ export class ActorLayer {
     blendPose(s.pose, target, f.dt, a.stage === 'active' ? 55 : a.stage === 'windup' ? 26 : 16);
     const p = s.pose;
     // whirlwinds spin the whole body; leaps arc through the air
-    if (SPIN.has(a.id) && a.stage === 'active') r.root.rotation.y += a.k * Math.PI * 2 * 2.5;
+    if ((SPIN.has(a.id) || ACTIONS[a.id]?.anim === 'spin') && a.stage === 'active') r.root.rotation.y += a.k * Math.PI * 2 * 2.5;
     r.root.position.y = a.id === 'barb_leap' && a.stage === 'active' ? Math.sin(Math.min(1, a.k) * Math.PI) * 1.1 : 0;
     if (r.offhand && r.kind === 'ranger') {
       const aim = Math.max(0, Math.min(1, (p.arm[1] - 0.4) / 1.0));

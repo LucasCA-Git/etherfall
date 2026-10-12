@@ -13,9 +13,9 @@ import { SpatialHash } from '../physics/spatialHash';
 import { tileAt, type WorldData } from '../world/worldgen';
 import { isWalkable, Tile } from '../world/tiles';
 import type { DynamicItem, SimContext, StaticCollider } from './context';
-import { DT, type AttrKey, type ClassId, type Entity, type InputCommand, type PendingStrike, type SimEvent, type StatusId, type Zone } from './types';
+import { ABILITY_SLOTS, DT, type AbilitySlot, type AttrKey, type ClassId, type Entity, type InputCommand, type PendingStrike, type SimEvent, type StatusId, type Zone } from './types';
 import { addStatus, expireStatuses } from '../combat/statuses';
-import { canAllocateTalent, SUBCLASS_LEVEL, SUBCLASSES, talentBonus } from '../data/talents';
+import { canAllocateTalent, cleanLoadout, dominantArchetype, talentBonus, unlockedSkills } from '../data/talents';
 import type { ActionDef } from '../data/actions';
 import type { CharacterSave } from '../net/save';
 
@@ -73,7 +73,8 @@ export class Simulation implements SimContext {
     e.unspent = save.unspent;
     e.attrs = { ...save.attrs };
     e.talents = { ...save.talents };
-    e.subclass = save.subclass;
+    e.loadout = { ...save.loadout };
+    e.subclass = dominantArchetype(save.classId, e.talents);
     e.discovered = [...save.discovered];
     e.essenceMark = save.essenceMark ? { ...save.essenceMark } : null;
     const rp = okSpot(save.respawn);
@@ -82,13 +83,15 @@ export class Simulation implements SimContext {
     return e;
   }
 
-  /** Refund every attribute and talent point. Only while seated at a bonfire. Subclass stays. */
+  /** Refund every attribute and skill-tree point. Only while seated at a bonfire. */
   respec(playerId: number): boolean {
     const p = this.entities.get(playerId);
     if (!p || p.kind !== 'player' || !p.classId || p.action?.id !== 'sit') return false;
     p.attrs = { ...CLASSES[p.classId].baseAttributes };
     p.unspent = (p.level - 1) * ATTR_POINTS_PER_LEVEL;
     p.talents = {};
+    p.loadout = {};
+    p.subclass = null;
     this.refreshStats(p, false);
     p.hp = Math.min(p.hp, p.maxHp);
     return true;
@@ -224,7 +227,7 @@ export class Simulation implements SimContext {
       }
       const def = getAction(s.actionId).strikes!;
       const owner = this.entities.get(s.ownerId);
-      this.emit({ type: 'strike', ownerId: s.ownerId, x: s.x, y: s.y, radius: def.radius });
+      this.emit({ type: 'strike', ownerId: s.ownerId, actionId: s.actionId, x: s.x, y: s.y, radius: def.radius });
       if (!owner) continue;
       for (const c of this.dynamics.query(s.x, s.y, def.radius)) {
         if (c.e.team === owner.team || isDead(c.e)) continue;
@@ -261,22 +264,31 @@ export class Simulation implements SimContext {
     return true;
   }
 
-  /** Spend one talent point (server-validated). */
+  /** Buy one skill-tree node (server-validated: connected, affordable, of the class). */
   allocateTalent(playerId: number, nodeId: string): boolean {
     const p = this.entities.get(playerId);
-    if (!p || !canAllocateTalent(p, nodeId)) return false;
-    p.talents[nodeId] = (p.talents[nodeId] ?? 0) + 1;
+    if (!p || !p.classId || !canAllocateTalent(p, nodeId)) return false;
+    p.talents[nodeId] = 1;
+    p.subclass = dominantArchetype(p.classId, p.talents);
     this.refreshStats(p, false);
     return true;
   }
 
-  /** Pick the subclass once, from the player's class list, at SUBCLASS_LEVEL or above. */
-  chooseSubclass(playerId: number, id: string): boolean {
+  /**
+   * Put an unlocked skill in an ability slot (`action` null = back to the class default).
+   * A skill lives in one slot at a time: equipping it elsewhere moves it.
+   */
+  equipSkill(playerId: number, slot: AbilitySlot, action: string | null): boolean {
     const p = this.entities.get(playerId);
-    if (!p || p.kind !== 'player' || !p.classId || p.subclass || p.level < SUBCLASS_LEVEL) return false;
-    if (!SUBCLASSES[p.classId].some((s) => s.id === id)) return false;
-    p.subclass = id;
-    this.refreshStats(p, false);
+    if (!p || p.kind !== 'player' || !p.classId || !ABILITY_SLOTS.includes(slot)) return false;
+    if (action === null) {
+      delete p.loadout[slot];
+      return true;
+    }
+    if (!unlockedSkills(p.classId, p.talents).includes(action)) return false;
+    for (const s of ABILITY_SLOTS) if (p.loadout[s] === action) delete p.loadout[s];
+    p.loadout[slot] = action;
+    p.loadout = cleanLoadout(p.classId, p.loadout, p.talents);
     return true;
   }
 
@@ -481,7 +493,7 @@ export class Simulation implements SimContext {
   private damageOverTime(e: Entity): void {
     if (this.tick % DOT_INTERVAL !== 0) return;
     for (const s of e.statuses) {
-      if ((s.id !== 'poison' && s.id !== 'curse') || s.until <= this.tick) continue;
+      if ((s.id !== 'poison' && s.id !== 'curse' && s.id !== 'burn') || s.until <= this.tick) continue;
       const amount = Math.max(1, Math.round((s.power * DOT_INTERVAL) / 30));
       e.hp -= amount;
       e.lastHitTick = this.tick;

@@ -18,7 +18,7 @@ function base(id: number, kind: Entity['kind'], name: string, pos: Vec2, tick: n
     buffered: null, lastLightTick: -1000, comboIdx: 0, prevButtons: 0,
     input: { seq: 0, mx: 0, my: 0, aim: 0, buttons: 0 },
     sprinting: false, lastHitTick: -1000, respawnPoint: { x: pos.x, y: pos.y }, deadUntil: 0,
-    xp: 0, unspent: 0, essenceMark: null, discovered: [], statuses: [], talents: {}, subclass: null,
+    xp: 0, unspent: 0, essenceMark: null, discovered: [], statuses: [], talents: {}, loadout: {}, subclass: null,
   };
 }
 

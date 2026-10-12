@@ -3,7 +3,8 @@ import { Simulation } from '../src/sim/simulation';
 import { Btn, type InputCommand, type SimEvent } from '../src/sim/types';
 import { Tile } from '../src/world/tiles';
 import type { WorldData } from '../src/world/worldgen';
-import { SUBCLASS_LEVEL, SUBCLASSES, TALENT_TREES, talentBonus, talentPointsFree } from '../src/data/talents';
+import { TALENT_TREES, TITLE_POINTS, talentBonus, talentPointsFree, unlockedSkills } from '../src/data/talents';
+import { ACTIONS } from '../src/data/actions';
 import { ENEMIES } from '../src/data/enemies';
 import { getAction } from '../src/data/actions';
 import { bonfireSeats } from '../src/world/worldgen';
@@ -38,56 +39,64 @@ function dummy(sim: Simulation, x: number, y: number) {
   return e;
 }
 
-describe('talent trees', () => {
-  it('every class has 3 branches with nodes, and 2 subclasses', () => {
-    for (const cls of ['vanguard', 'arcanist', 'healer'] as const) {
-      expect(TALENT_TREES[cls].branches.length).toBe(3);
-      for (const b of TALENT_TREES[cls].branches) expect(b.nodes.length).toBeGreaterThanOrEqual(4);
-      expect(SUBCLASSES[cls].length).toBe(2);
+describe('skill trees (free graph)', () => {
+  it('every class: 3 archetypes, a big connected graph, 2 skill nodes per archetype that exist', () => {
+    for (const cls of ['vanguard', 'arcanist', 'healer', 'ranger', 'rogue', 'barbarian', 'warlock'] as const) {
+      const t = TALENT_TREES[cls];
+      expect(t.archetypes.length).toBe(3);
+      expect(t.nodes.length).toBeGreaterThanOrEqual(60);
+      const byId = new Map(t.nodes.map((n) => [n.id, n]));
+      for (const n of t.nodes) for (const l of n.links) expect(byId.get(l)?.links).toContain(n.id); // symmetric
+      const seen = new Set([t.start]);
+      const q = [t.start];
+      while (q.length) for (const l of byId.get(q.shift()!)!.links) if (!seen.has(l)) { seen.add(l); q.push(l); }
+      expect(seen.size).toBe(t.nodes.length); // connected
+      for (const a of t.archetypes) {
+        const skills = t.nodes.filter((n) => n.path === a.id && n.kind === 'skill');
+        expect(skills.length).toBe(2);
+        for (const s of skills) expect(ACTIONS[s.skill!]).toBeTruthy();
+        expect(t.nodes.filter((n) => n.path === a.id && n.kind === 'keystone').length).toBe(1);
+      }
     }
   });
 
-  it('grants one talent point per level after the first and validates allocation', () => {
+  it('one point per level; a node must touch the owned area', () => {
     const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
     const p = sim.addPlayer('T', 'vanguard', { x: 20, y: 20 });
     expect(talentPointsFree(p)).toBe(0);
-    expect(sim.allocateTalent(p.id, 'vg.b1')).toBe(false); // no points
+    expect(sim.allocateTalent(p.id, 'vg.r0')).toBe(false); // no points
     levelTo(sim, p.id, 4);
     expect(talentPointsFree(p)).toBe(3);
-    expect(sim.allocateTalent(p.id, 'vg.b2')).toBe(false); // requires vg.b1
-    expect(sim.allocateTalent(p.id, 'ar.g1')).toBe(false); // other class
+    expect(sim.allocateTalent(p.id, 'vg.paladin.0')).toBe(false); // not connected yet
+    expect(sim.allocateTalent(p.id, 'ar.r0')).toBe(false); // other class
     expect(sim.allocateTalent(p.id, 'nope')).toBe(false);
-    expect(sim.allocateTalent(p.id, 'vg.b1')).toBe(true);
-    expect(sim.allocateTalent(p.id, 'vg.b2')).toBe(true);
-    expect(p.talents['vg.b1']).toBe(1);
+    expect(sim.allocateTalent(p.id, 'vg.start')).toBe(false);
+    expect(sim.allocateTalent(p.id, 'vg.r0')).toBe(true);
+    expect(sim.allocateTalent(p.id, 'vg.r0')).toBe(false); // already owned
+    expect(sim.allocateTalent(p.id, 'vg.paladin.0')).toBe(true);
     expect(talentPointsFree(p)).toBe(1);
   });
 
-  it('respects max rank', () => {
-    const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
-    const p = sim.addPlayer('T', 'vanguard', { x: 20, y: 20 });
-    levelTo(sim, p.id, 10);
-    const max = TALENT_TREES.vanguard.branches[0]!.nodes[0]!.maxRank;
-    for (let i = 0; i < max; i++) expect(sim.allocateTalent(p.id, 'vg.b1')).toBe(true);
-    expect(sim.allocateTalent(p.id, 'vg.b1')).toBe(false);
-  });
-
-  it('max-HP talent raises max HP', () => {
+  it('max-HP node raises max HP', () => {
     const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
     const p = sim.addPlayer('T', 'vanguard', { x: 20, y: 20 });
     levelTo(sim, p.id, 3);
     const before = p.maxHp;
-    sim.allocateTalent(p.id, 'vg.b1');
+    sim.allocateTalent(p.id, 'vg.r0');
     expect(p.maxHp).toBeGreaterThan(before);
     expect(talentBonus(p, 'maxHp')).toBeGreaterThan(0);
   });
 
-  it('damage talent raises damage dealt', () => {
+  it('damage node raises damage dealt', () => {
     const hit = (withTalent: boolean) => {
       const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
       const p = sim.addPlayer('T', 'vanguard', { x: 20, y: 20 });
       levelTo(sim, p.id, 4);
-      if (withTalent) for (let i = 0; i < 3; i++) sim.allocateTalent(p.id, 'vg.l1');
+      if (withTalent) {
+        sim.allocateTalent(p.id, 'vg.r4'); // crit
+        sim.allocateTalent(p.id, 'vg.gladiator.0'); // physical damage
+      }
+      p.talentOverride = { critChance: -1 }; // no random crits in this comparison
       const d = dummy(sim, 21.3, 20);
       run(sim, p.id, cmd(Btn.Light, 0), 25);
       return 100000 - d.hp;
@@ -95,19 +104,20 @@ describe('talent trees', () => {
     expect(hit(true)).toBeGreaterThan(hit(false));
   });
 
-  it('cooldown talent shortens ability cooldowns', () => {
-    const cd = (ranks: number) => {
+  it('cooldown node shortens ability cooldowns', () => {
+    const cd = (owned: boolean) => {
       const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
       const p = sim.addPlayer('T', 'vanguard', { x: 20, y: 20 });
       levelTo(sim, p.id, 8);
-      sim.allocateTalent(p.id, 'vg.l1');
-      sim.allocateTalent(p.id, 'vg.l2');
-      for (let i = 0; i < ranks; i++) sim.allocateTalent(p.id, 'vg.l3');
+      if (owned) {
+        sim.allocateTalent(p.id, 'vg.r4');
+        sim.allocateTalent(p.id, 'vg.r5'); // -2% cooldown
+      }
       const t0 = sim.tick;
       run(sim, p.id, cmd(Btn.AbilQ, 0), 2);
       return p.cooldowns['vanguard_seismic']! - t0;
     };
-    expect(cd(3)).toBeLessThan(cd(0));
+    expect(cd(true)).toBeLessThan(cd(false));
   });
 
   it('critical hits show up as crit "critical" and deal more', () => {
@@ -120,41 +130,68 @@ describe('talent trees', () => {
     expect(h && h.type === 'hit' && h.crit).toBe('critical');
     expect(100000 - d.hp).toBeGreaterThan(28);
   });
-});
 
-describe('subclasses', () => {
-  it('can only be chosen once, at the subclass level, from the class list', () => {
+  it('lifesteal heals the attacker on hit', () => {
     const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
     const p = sim.addPlayer('T', 'vanguard', { x: 20, y: 20 });
-    expect(sim.chooseSubclass(p.id, 'paladin')).toBe(false);
-    levelTo(sim, p.id, SUBCLASS_LEVEL);
-    expect(sim.chooseSubclass(p.id, 'cryomancer')).toBe(false);
-    expect(sim.chooseSubclass(p.id, 'paladin')).toBe(true);
-    expect(p.subclass).toBe('paladin');
-    expect(sim.chooseSubclass(p.id, 'berserker')).toBe(false);
-  });
-
-  it('lifesteal subclass heals the attacker on hit', () => {
-    const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
-    const p = sim.addPlayer('T', 'vanguard', { x: 20, y: 20 });
-    levelTo(sim, p.id, SUBCLASS_LEVEL);
-    sim.chooseSubclass(p.id, 'paladin');
+    p.talentOverride = { lifesteal: 0.1 };
     p.hp = 100;
     dummy(sim, 21.3, 20);
     run(sim, p.id, cmd(Btn.Light, 0), 25);
     expect(p.hp).toBeGreaterThan(100);
   });
+});
 
-  it('is exposed through the room protocol', () => {
+describe('skill nodes, loadout and titles', () => {
+  const toPaladinLight = ['vg.r0', 'vg.paladin.0', 'vg.paladin.1a', 'vg.paladin.2'];
+
+  it('a skill node unlocks a new ability that can be equipped and used (Paladino: Luz Sagrada)', () => {
     const room = new Room({ world: flatWorld() });
     room.handle('s', { t: 'hello', version: PROTOCOL_VERSION });
-    room.handle('s', { t: 'join', name: 'Lia', classId: 'healer' });
+    room.handle('s', { t: 'join', name: 'Lia', classId: 'vanguard' });
     const p = [...room.sim.entities.values()].find((e) => e.kind === 'player')!;
-    levelTo(room.sim, p.id, SUBCLASS_LEVEL);
-    expect(room.handle('s', { t: 'talent', node: 'he.l1' })).toEqual([]);
-    expect(room.handle('s', { t: 'subclass', id: 'dawnpriest' })).toEqual([]);
-    expect(room.handle('s', { t: 'subclass', id: 'inquisitor' })[0]?.t).toBe('error');
-    expect(p.subclass).toBe('dawnpriest');
+    levelTo(room.sim, p.id, 6);
+    expect(room.handle('s', { t: 'equip', slot: 'a1', action: 'pal_light' })[0]?.t).toBe('error'); // locked
+    for (const n of toPaladinLight) expect(room.handle('s', { t: 'talent', node: n })).toEqual([]);
+    expect(unlockedSkills('vanguard', p.talents)).toContain('pal_light');
+    expect(room.handle('s', { t: 'equip', slot: 'a1', action: 'pal_light' })).toEqual([]);
+    expect(p.loadout.a1).toBe('pal_light');
+    expect(room.handle('s', { t: 'equip', slot: 'a1', action: 'arcanist_bolt' })[0]?.t).toBe('error'); // other class
+    p.hp = 100;
+    run(room.sim, p.id, cmd(Btn.Abil1, 0), 2);
+    expect(p.action?.id).toBe('pal_light');
+    run(room.sim, p.id, cmd(0, 0), 20);
+    expect(p.hp).toBeGreaterThan(100);
+    // moving a skill to another slot frees the first one
+    expect(room.handle('s', { t: 'equip', slot: 'r', action: 'pal_light' })).toEqual([]);
+    expect(p.loadout.a1).toBeUndefined();
+    expect(p.loadout.r).toBe('pal_light');
+  });
+
+  it('the archetype with most points becomes the title (needs TITLE_POINTS)', () => {
+    const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
+    const p = sim.addPlayer('T', 'vanguard', { x: 20, y: 20 });
+    levelTo(sim, p.id, 12);
+    const path = ['vg.r0', 'vg.paladin.0', 'vg.paladin.1a', 'vg.paladin.2', 'vg.paladin.3a', 'vg.paladin.4'];
+    for (const n of path) expect(sim.allocateTalent(p.id, n)).toBe(true);
+    expect(TITLE_POINTS).toBeLessThanOrEqual(5);
+    expect(p.subclass).toBe('paladin');
+  });
+
+  it('respec at a bonfire refunds nodes and clears the loadout', () => {
+    const w = flatWorld();
+    w.props.push({ id: 1, kind: 'bonfire', x: 20, y: 22, r: 0.45, size: 0.6, solid: true, v: 0.5 });
+    const sim = new Simulation({ world: w, spawnEnemies: false });
+    const p = sim.addPlayer('T', 'vanguard', { x: 20, y: 20.6 });
+    levelTo(sim, p.id, 6);
+    for (const n of toPaladinLight) sim.allocateTalent(p.id, n);
+    expect(sim.equipSkill(p.id, 'q', 'pal_light')).toBe(true);
+    run(sim, p.id, cmd(Btn.Interact, 0), 2);
+    expect(p.action?.id).toBe('sit');
+    expect(sim.respec(p.id)).toBe(true);
+    expect(Object.keys(p.talents).length).toBe(0);
+    expect(p.loadout).toEqual({});
+    expect(talentPointsFree(p)).toBe(5);
   });
 });
 

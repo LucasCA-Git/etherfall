@@ -133,10 +133,13 @@ export class Room {
         if (!s) return [{ t: 'error', code: 'join', message: 'Join first' }];
         return typeof msg.node === 'string' && this.sim.allocateTalent(s.playerId, msg.node) ? [] : [{ t: 'error', code: 'talent', message: 'Talento indisponível' }];
       }
-      case 'subclass': {
+      case 'equip': {
         const s = this.sessions.get(sessionId);
         if (!s) return [{ t: 'error', code: 'join', message: 'Join first' }];
-        return typeof msg.id === 'string' && this.sim.chooseSubclass(s.playerId, msg.id) ? [] : [{ t: 'error', code: 'subclass', message: 'Subclasse indisponível' }];
+        const action = msg.action === null || typeof msg.action === 'string' ? msg.action : undefined;
+        return typeof msg.slot === 'string' && action !== undefined && this.sim.equipSkill(s.playerId, msg.slot, action)
+          ? []
+          : [{ t: 'error', code: 'equip', message: 'Essa habilidade ainda não foi desbloqueada' }];
       }
       case 'respec': {
         const s = this.sessions.get(sessionId);

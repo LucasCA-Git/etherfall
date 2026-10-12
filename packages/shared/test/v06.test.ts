@@ -6,7 +6,7 @@ import { generateWorld, type WorldData } from '../src/world/worldgen';
 import { CLASSES, CLASS_ORDER } from '../src/data/classes';
 import { ACTIONS, getAction } from '../src/data/actions';
 import { ENEMIES } from '../src/data/enemies';
-import { SUBCLASSES, TALENT_TREES } from '../src/data/talents';
+import { TALENT_TREES } from '../src/data/talents';
 import { AMBUSH_MUL } from '../src/combat/combat';
 import { hasStatus } from '../src/combat/statuses';
 import { Room } from '../src/net/room';
@@ -36,14 +36,13 @@ function dummy(sim: Simulation, x: number, y: number, enemy = 'hollow') {
 const NEW: ClassId[] = ['ranger', 'rogue', 'barbarian', 'warlock'];
 
 describe('classes 0.6', () => {
-  it('seven classes, each fully wired: actions exist, 3 talent branches, 2 subclasses', () => {
+  it('seven classes, each fully wired: actions exist, a skill tree with 3 archetypes', () => {
     expect(CLASS_ORDER.length).toBe(7);
     for (const id of CLASS_ORDER) {
       const c = CLASSES[id];
       expect(c.id).toBe(id);
       for (const a of [c.lightAction, c.heavyAction, ...Object.values(c.abilities).map((s) => s.action)]) expect(() => getAction(a)).not.toThrow();
-      expect(TALENT_TREES[id].branches.length).toBe(3);
-      expect(SUBCLASSES[id].length).toBe(2);
+      expect(TALENT_TREES[id].archetypes.length).toBe(3);
     }
   });
 

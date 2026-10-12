@@ -90,15 +90,19 @@ describe('AccountStore', () => {
 });
 
 describe('validateSave', () => {
-  it('clamps tampered saves: impossible attributes, foreign talents, early subclass', () => {
+  it('clamps tampered saves: impossible attributes, foreign or disconnected nodes, locked skills', () => {
     const c = newCharacter('x', 'Trapaça', 'vanguard', 0);
-    const evil = { ...c, level: 3, attrs: { ...c.attrs, str: 99 }, talents: { 'vg.b1': 3, 'ar.g1': 1, 'vg.l2': 1 }, subclass: 'paladin' };
+    const evil = {
+      ...c, level: 3, attrs: { ...c.attrs, str: 99 },
+      talents: { 'vg.r0': 1, 'vg.paladin.0': 5, 'ar.r0': 1, 'vg.gladiator.5a': 1, 'vg.paladin.1a': 1 },
+      loadout: { q: 'pal_light', a1: 'arcanist_bolt', a2: 'vanguard_charge' },
+      subclass: 'paladin',
+    };
     const v = validateSave(evil)!;
     expect(v.attrs.str).toBe(c.attrs.str); // refunded
     expect(v.unspent).toBe(6);
-    expect(Object.values(v.talents).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(2);
-    expect(v.talents['ar.g1']).toBeUndefined();
-    expect(v.talents['vg.l2']).toBeUndefined(); // requires vg.l1
+    expect(Object.keys(v.talents).sort()).toEqual(['vg.paladin.0', 'vg.r0']); // 2 points, connected, own class
+    expect(v.loadout).toEqual({ a2: 'vanguard_charge' }); // locked and foreign skills dropped
     expect(v.subclass).toBeNull();
   });
 });

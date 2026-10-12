@@ -130,26 +130,33 @@ input[type='range'] { width: 100%; accent-color: var(--gold); }
 .mm-label { font-size: 11px; color: #e9d7ad; text-shadow: 0 1px 0 #000; letter-spacing: 0.04em; }
 @media (max-width: 700px) { .minimap { width: 120px; } .minimap canvas { width: 120px; height: 120px; } }
 
-/* talent tree (K) */
-.talents { background: rgba(12, 10, 9, 0.95) !important; position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(920px, 94vw); max-height: 88vh; overflow: auto; padding: 14px 16px; display: grid; gap: 10px; }
-.talent-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.subclass { border: 1px solid var(--line); padding: 8px 10px; background: rgba(40, 18, 14, 0.35); }
-.sub-title { color: #e2c06a; font-weight: 700; letter-spacing: 0.04em; }
-.sub-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
-.sub-card { border: 1px solid var(--line); padding: 8px; display: grid; gap: 4px; align-content: start; }
-.sub-card b { color: #f0dcb0; }
-.branches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.branch { display: grid; gap: 6px; align-content: start; }
-.branch-name { color: #d6aa5a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
-.talent { display: grid; grid-template-columns: 1fr 30px; gap: 6px; align-items: center; padding: 6px; border: 1px solid #2a2420; background: rgba(0, 0, 0, 0.35); }
-.talent .rank { color: #9a8f7a; font-size: 11px; }
-.talent .desc { color: #a89f8c; font-size: 11px; margin-top: 2px; }
-.talent.owned { border-color: #8a6a2a; box-shadow: inset 0 0 12px rgba(214, 170, 90, 0.15); }
-.talent.maxed b { color: #ffd77a; }
-.talent.locked { opacity: 0.45; }
-.talent .btn { padding: 2px 0; }
-@media (max-width: 700px) { .branches, .sub-cards { grid-template-columns: 1fr; } }
-
+/* skill tree (K): graph canvas + side panel */
+.talents { background: #05060b !important; position: absolute; z-index: 30; inset: 3vh 2vw; display: grid; grid-template-columns: 1fr minmax(300px, 30%); gap: 0; padding: 0; overflow: hidden; }
+.tree-wrap { position: relative; min-height: 0; border-right: 1px solid var(--line); }
+.tree-canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.tree-canvas:active { cursor: grabbing; }
+.tree-tip { position: absolute; width: 230px; padding: 8px 10px; background: rgba(4, 5, 9, 0.96); border: 1px solid var(--line); pointer-events: none; display: grid; gap: 4px; font-size: 11.5px; white-space: pre-line; }
+.tree-tip b { color: #fff; font-size: 12.5px; }
+.tree-tip .tip-kind { color: var(--dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.tree-tip .tip-state { color: #ffd77a; font-size: 10.5px; }
+.tree-side { overflow: auto; padding: 12px 14px; display: grid; gap: 12px; align-content: start; }
+.tree-head { display: grid; gap: 3px; }
+.tree-paths { display: grid; gap: 6px; }
+.tree-path { border-left: 3px solid; padding: 3px 8px; background: rgba(255, 255, 255, 0.03); }
+.sub-title { color: var(--gold); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px; margin-top: 4px; }
+.loadout { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.loadout-slot { position: relative; aspect-ratio: 1; border: 1px solid var(--line); background: #07080d; }
+.loadout-slot canvas { width: 100%; height: 100%; display: block; }
+.loadout-slot .key { position: absolute; left: 3px; top: 1px; font-size: 10px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; }
+.skill-list { display: grid; gap: 5px; }
+.skill-row { display: grid; grid-template-columns: 38px 1fr; gap: 4px 8px; align-items: center; padding: 5px; border: 1px solid #1d2030; background: rgba(255, 255, 255, 0.02); }
+.skill-row.fromtree { border-color: rgba(255, 215, 106, 0.35); }
+.skill-row canvas { width: 38px; height: 38px; grid-row: span 2; }
+.skill-row .hint { font-size: 10.5px; }
+.skill-btns { display: flex; gap: 3px; flex-wrap: wrap; grid-column: 2; }
+.btn.tiny { padding: 1px 6px; font-size: 10.5px; min-width: 22px; }
+.btn.tiny.on { background: rgba(255, 215, 106, 0.25); border-color: #ffd76a; color: #fff; }
+@media (max-width: 800px) { .talents { grid-template-columns: 1fr; grid-template-rows: 55% 45%; } .tree-wrap { border-right: 0; border-bottom: 1px solid var(--line); } }
 .talent-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 
 /* title: offline saves, online lobby */
@@ -179,3 +186,9 @@ input[type='range'] { width: 100%; accent-color: var(--gold); }
 #app.mono-ui .slot .key { color: #f2f3f7; }
 .room-tag { position: absolute; left: 14px; top: 132px; padding: 3px 8px; border: 1px solid var(--line); background: var(--panel); letter-spacing: 0.2em; font-size: 11px; color: var(--ink); }
 #lobby-room { width: 190px; }
+
+/* 0.9 — ASCII skill icons on the ability bar */
+.slot .slot-icon { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.9; image-rendering: auto; pointer-events: none; }
+.slot .key, .slot .lbl { position: relative; text-shadow: 0 1px 2px #000, 0 0 4px #000; }
+.slot .lbl { background: linear-gradient(transparent, rgba(0, 0, 0, 0.75)); margin: 0 -4px -4px; padding: 6px 4px 3px; }
+.slot.lacking .slot-icon { filter: grayscale(0.8) brightness(0.6); }

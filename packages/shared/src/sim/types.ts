@@ -36,6 +36,10 @@ export interface InputCommand {
 }
 
 export type EntityKind = 'player' | 'enemy' | 'projectile';
+/** Ability slots the player can (re)assign: Q, E, 1–4 and R. */
+export type AbilitySlot = 'q' | 'e' | 'a1' | 'a2' | 'a3' | 'a4' | 'r';
+export const ABILITY_SLOTS: readonly AbilitySlot[] = ['q', 'e', 'a1', 'a2', 'a3', 'a4', 'r'];
+
 export type ClassId = 'vanguard' | 'arcanist' | 'healer' | 'ranger' | 'rogue' | 'barbarian' | 'warlock';
 export type AttrKey = 'str' | 'dex' | 'vit' | 'end' | 'int' | 'wil' | 'lck';
 export type Attributes = Record<AttrKey, number>;
@@ -45,7 +49,7 @@ export type DamageType = 'physical' | 'arcane';
  * poison/curse: damage over time (power = damage per second) · empower: +power damage dealt
  * stealth: enemies cannot acquire you; your next attack is an ambush (x AMBUSH_MUL)
  */
-export type StatusId = 'slow' | 'root' | 'ironguard' | 'counter' | 'poison' | 'curse' | 'empower' | 'stealth';
+export type StatusId = 'slow' | 'root' | 'ironguard' | 'counter' | 'poison' | 'curse' | 'empower' | 'stealth' | 'burn';
 
 export interface StatusInst {
   id: StatusId;
@@ -177,9 +181,11 @@ export interface Entity {
   /** Points of interest already discovered (exploration XP is granted once). */
   discovered: string[];
   statuses: StatusInst[];
-  /** Talent ranks by node id (see data/talents.ts). */
+  /** Allocated skill-tree nodes by id (value 1; see data/talents.ts). */
   talents: Record<string, number>;
-  /** Subclass chosen at SUBCLASS_LEVEL, or null. */
+  /** Skills equipped in the ability slots (overrides the class kit; unlocked skills only). */
+  loadout: Partial<Record<AbilitySlot, string>>;
+  /** Title from the skill-tree path with most points (e.g. "paladin"), derived; null below 5 points. */
   subclass: string | null;
   /** Admin/test override added on top of talent bonuses. */
   talentOverride?: Partial<Record<string, number>>;
@@ -219,8 +225,8 @@ export type SimEvent =
   | { type: 'status'; target: number; status: StatusId; until: number; x: number; y: number }
   | { type: 'spikes'; id: number; x: number; y: number; dir: number; idx: number; radius: number }
   | { type: 'zone'; id: number; ownerId: number; kind: string; x: number; y: number; r: number; until: number }
-  | { type: 'strikeWarn'; ownerId: number; x: number; y: number; radius: number; ticks: number }
-  | { type: 'strike'; ownerId: number; x: number; y: number; radius: number }
+  | { type: 'strikeWarn'; ownerId: number; actionId: string; x: number; y: number; radius: number; ticks: number }
+  | { type: 'strike'; ownerId: number; actionId: string; x: number; y: number; radius: number }
   | { type: 'seal'; id: number; target: number; x: number; y: number }
   | { type: 'heal'; source: number; target: number; amount: number; x: number; y: number }
   | { type: 'cleanse'; source: number; target: number; x: number; y: number }

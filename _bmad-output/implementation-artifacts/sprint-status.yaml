@@ -43,6 +43,7 @@ development_status:
   3-22-bone-colossus: done           # epic giant enemy
   3-23-warlock-summons: done         # imps + abyssal guardian (R), allied AI, kill credit
   3-24-pose-blending: done           # smoother animation
+  3-26-free-skill-trees: done        # PoE-style graph per class, 42 new skills, loadout, ASCII icons
   3-25-ascii-3d-world: done          # whole world in 3D + fine ASCII post (user's reference video), grass strokes, 2x actor glyphs
   epic-4: backlog
   epic-5: in-progress               # WebSocket server, accounts, saves (0.7); prediction/reconciliation next
@@ -56,4 +57,5 @@ notes:
   - 0.5 hybrid 3D actors (three.js overlay, ortho 35 deg mapped to ASCII pixels), talents/subclasses, RO damage numbers
   - 0.6 pixel-art actors, 7 classes, DoT/stealth mechanics, Colosso de Ossos giant
   - 0.7 online server (accounts, saved characters, LAN), offline saves, respec, warlock summons
+  - 0.9 free skill trees (73 nodes x 7 classes), 42 skills, loadout, ASCII skill icons
   - 0.8 'ASCII MMORPG' look: 3D world + fine ASCII filter, wind-combed grass strokes, rain streaks, mono HUD

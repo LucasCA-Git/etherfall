@@ -9,7 +9,7 @@ export const ACTION_LABELS: Record<InputAction, string> = {
   up: 'Mover para cima', down: 'Mover para baixo', left: 'Mover para a esquerda', right: 'Mover para a direita',
   light: 'Ataque leve', heavy: 'Ataque pesado (segure p/ carregar)', block: 'Bloquear / aparar', dodge: 'Esquiva', sprint: 'Correr',
   abilQ: 'Habilidade Q', abilE: 'Habilidade E', abil1: 'Habilidade 1', abil2: 'Habilidade 2', abil3: 'Habilidade 3', abil4: 'Habilidade 4',
-  ultimate: 'Suprema (R)', interact: 'Interagir', context: 'Ação contextual (G)', inventory: 'Inventário', character: 'Personagem', talents: 'Talentos e subclasse',
+  ultimate: 'Suprema (R)', interact: 'Interagir', context: 'Ação contextual (G)', inventory: 'Inventário', character: 'Personagem', talents: 'Árvore de habilidades',
   map: 'Mapa', quests: 'Missões', menu: 'Menu', debug: 'Painel de depuração',
 };
 

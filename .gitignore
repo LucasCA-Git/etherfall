@@ -4,6 +4,7 @@ coverage/
 *.log
 .env
 e2e-output/
-data/
+/data/
+packages/server/data/
 tools/cloudflared
 tools/cloudflared.exe

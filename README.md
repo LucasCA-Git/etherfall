@@ -2,7 +2,7 @@
 
 RPG de ação **dark fantasy soulslike** para jogar no navegador, sozinho ou com amigos na mesma rede. Tudo é uma **cena 3D (mundo, castelo, florestas, personagens e monstros) desenhada inteira em ASCII fino** pela placa de vídeo, sobre um fundo azul-noite. A grama vira traços que o vento penteia, a chuva cai em riscos brancos, e os personagens usam o dobro de caracteres para ficarem nítidos.
 
-> **Versão 0.8: visual "ASCII MMORPG".** São 7 classes jogáveis, cada uma com árvore de talentos e subclasses. Dá para jogar online com conta, senha e personagens salvos no servidor, ou offline com o progresso salvo no navegador. O que funciona e o que falta está em [`docs/PROGRESS.md`](docs/PROGRESS.md).
+> **Versão 0.9: árvores de habilidades livres.** São 7 classes jogáveis, cada uma com uma árvore grande de 76 nós, 3 caminhos e 6 habilidades novas. Dá para jogar online com conta, senha e personagens salvos no servidor, ou offline com o progresso salvo no navegador. O que funciona e o que falta está em [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
 ---
 
@@ -143,18 +143,30 @@ XP total para chegar ao nível: **2 → 150**, **3 → 543**, **5 → 2.312**, *
   - **Sorte:** ainda sem uso.
 
   Até 20 pontos cada atributo rende 100%, de 20 a 40 rende metade, e acima de 40 um quarto.
-- **1 ponto de talento** (tecla **K**). São 3 ramos por classe com 4 talentos cada; cada talento pede o anterior do mesmo ramo.
-- **No nível 10, a subclasse** (tecla **K**). É uma escolha **definitiva** entre duas especializações:
+- **1 ponto na árvore de habilidades** (tecla **K**).
 
-| Classe | Subclasses |
+### Árvore de habilidades (estilo Path of Exile)
+Cada classe tem uma **árvore livre grande, com 76 nós**. Você começa no centro e cada ponto compra um nó **ligado a algo que já é seu**. Os três braços são três caminhos. No nível 60 você terá 59 pontos para 76 nós, então ninguém pega tudo e cada personagem sai único. Também dá para misturar braços pelo anel central e pelas pontes entre eles.
+
+Cada braço tem:
+- **nós de atributo**;
+- **talentos notáveis**;
+- **duas habilidades novas**;
+- uma **pedra angular** na ponta (bônus forte com algum preço).
+
+Com 5 pontos num braço, ele vira o **título** do personagem (ex.: "Vanguarda · Paladino").
+
+| Classe | Caminhos (habilidades novas) |
 |---|---|
-| Vanguarda | Paladino · Berserker |
-| Bárbaro | Chefe de Guerra · Fúria Sangrenta |
-| Ladina | Assassina · Envenenadora |
-| Patrulheiro | Atirador de Elite · Guardião da Mata |
-| Arcanista | Criomante · Mago de Sangue |
-| Bruxo | Pacto Infernal · Ceifador de Almas |
-| Curandeira | Sacerdotisa da Aurora · Inquisidora |
+| Vanguarda | **Paladino** (Luz Sagrada, Martelo Sagrado) · **Guardião** (Golpe de Escudo, Muralha) · **Gladiador** (Rajada de Golpes, Execução) |
+| Bárbaro | **Chefe de Guerra** (Estandarte de Guerra, Brado Intimidador) · **Fúria Sangrenta** (Frenesi, Esmagar Sangrento) · **Xamã Ancestral** (Fúria da Tempestade, Espíritos Ancestrais) |
+| Ladina | **Assassina** (Golpe Sombrio, Marca da Morte) · **Ilusionista** (Imagens Espelhadas, Véu de Ilusão) · **Envenenadora** (Frasco Tóxico, Leque Envenenado) |
+| Patrulheiro | **Atirador de Elite** (Flecha Perfurante, Tiro Múltiplo) · **Mestre das Feras** (Companheiro Lobo, Mergulho do Falcão) · **Guardião da Mata** (Enredar, Nuvem Tóxica) |
+| Arcanista | **Criomante** (Nova Gélida, Nevasca) · **Piromante** (Bola de Fogo, Meteoro) · **Mestre Arcano** (Mísseis Arcanos, Teleporte) |
+| Bruxo | **Demonologista** (Cão Infernal, Fogo Infernal) · **Ceifador de Almas** (Foice Espectral, Colheita de Almas) · **Mestre das Sombras** (Tentáculos Sombrios, Manto Sombrio) |
+| Curandeira | **Sacerdotisa da Aurora** (Renovação, Auréola) · **Inquisidora** (Julgamento, Correntes Sagradas) · **Druida** (Espinheiro, Espíritos da Matilha) |
+
+**Atalhos:** na mesma tela (K), a lista **Habilidades disponíveis** mostra o kit da classe mais as habilidades que você desbloqueou. Clique em **Q, E, 1–4 ou R** para colocar cada uma no atalho que quiser. Todas as habilidades têm ícone em arte ASCII, colorido pelo elemento (fogo, gelo, sagrado, sombra, natureza...).
 
 ### Melhor maneira de subir de nível
 1. **Explore primeiro.** Visitar Ruínas, Lago, Castelo e Cripta dá 350 XP sem lutar, mais de dois terços do caminho até o nível 3.
@@ -168,11 +180,10 @@ XP total para chegar ao nível: **2 → 150**, **3 → 543**, **5 → 2.312**, *
 
 ## 5. Mudar de classe e de build
 
-- **Trocar os pontos (respec):** sente numa fogueira (**F**), abra os talentos (**K**) e clique em **Redistribuir pontos**. Todos os pontos de atributo e de talento voltam para você redistribuir. É grátis, e a subclasse continua a mesma.
+- **Trocar os pontos (respec):** sente numa fogueira (**F**), abra a árvore (**K**) e clique em **Redistribuir pontos**. Todos os pontos de atributo e da árvore voltam para você redistribuir, e os atalhos voltam ao kit da classe. É grátis: dá para virar de Paladino para Gladiador quando quiser.
 - **Trocar de classe:** a classe é do personagem, então crie **outro personagem**.
   - **Online:** a tela de personagens tem **Criar personagem**. Escolha a classe nos cartões acima. São até 6 por conta.
   - **Offline:** na tela inicial, escolha outra classe e use **outro nome**. Cada combinação de nome e classe é um save separado.
-- **Trocar de subclasse:** não é possível. Ela é a identidade do personagem; para outra subclasse, crie outro personagem.
 
 ---
 
@@ -212,7 +223,7 @@ Variáveis de ambiente (opcionais):
 ## 8. Desenvolvimento
 
 ```bash
-npm test                 # 131 testes: simulação, combate, talentos, invocações, saves, contas, servidor WebSocket
+npm test                 # 133 testes: simulação, combate, talentos, invocações, saves, contas, servidor WebSocket
 npm run build && npm run e2e   # E2E no Chromium: classes, fogueira, talentos, login online, saves offline
 ```
 O E2E precisa de um Chromium. Use `CHROMIUM_PATH=/caminho/chrome` ou `npx playwright install chromium`.
@@ -238,4 +249,7 @@ docs/PROGRESS.md  progresso, problemas conhecidos e próximos passos
 A arquitetura completa está em [`_bmad-output/planning-artifacts/architecture.md`](_bmad-output/planning-artifacts/architecture.md).
 
 ## Licença e originalidade
-Todo o conteúdo (nomes, criaturas, mapas, glifos, modelos e sons procedurais) é original deste projeto.
+O conteúdo (nomes, criaturas, mapas, glifos, modelos e sons procedurais) é original deste projeto,
+**exceto os sprites dos heróis jogáveis**: vêm do "Isometric Hero" de Clint Bellanger (projeto Flare),
+licença CC-BY-SA 3.0 — detalhes e obrigações em [CREDITS.md](CREDITS.md). Para voltar aos modelos 3D
+procedurais, abra o jogo com `?sprites=0`.

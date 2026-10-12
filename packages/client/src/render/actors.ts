@@ -1,4 +1,5 @@
 import { ACTIONS, type EntitySnap } from '@etherfall/shared';
+import { ELEMENT_RGB } from './elements';
 import { InstanceBatch, Shape, type RGB } from './instances';
 import { Mat } from './materials';
 import { drawHumanoid, drawSpider, drawWolf, type AnimState } from './rig';
@@ -25,8 +26,15 @@ export interface ProjStyle {
   /** Point light for glowing projectiles (null for physical ones). */
   light: RGB | null;
 }
-const ARROWS = new Set(['bow_shot', 'bow_power', 'ranger_volley', 'ranger_poison']);
+const ARROWS = new Set(['bow_shot', 'bow_power', 'ranger_volley', 'ranger_poison', 'snp_pierce', 'snp_multishot']);
 export function projectileStyle(name: string): ProjStyle {
+  const def = ACTIONS[name];
+  if (def?.element && def.projectile && !ARROWS.has(name)) {
+    // skill-tree projectiles: shape from the projectile kind, colours from the element
+    const c = ELEMENT_RGB[def.element];
+    if (def.projectile.id === 'knife') return { kind: 'knife', core: name === 'psn_fan' ? [0.5, 1, 0.35] : [0.9, 0.92, 0.98], tail: [0.3, 0.3, 0.32], light: null };
+    return { kind: 'bolt', core: [Math.min(1, c[0] * 1.1), Math.min(1, c[1] * 1.1), Math.min(1, c[2] * 1.1)], tail: [c[0] * 0.7, c[1] * 0.6, c[2] * 0.6], light: c };
+  }
   if (ARROWS.has(name)) return { kind: 'arrow', core: name === 'ranger_poison' ? [0.45, 1.0, 0.35] : [0.82, 0.8, 0.75], tail: [0.55, 0.38, 0.2], light: null };
   if (name === 'rogue_knives') return { kind: 'knife', core: [0.9, 0.92, 0.98], tail: [0.3, 0.3, 0.32], light: null };
   if (name === 'barb_throw') return { kind: 'axe', core: [0.6, 0.6, 0.62], tail: [0.4, 0.28, 0.16], light: null };

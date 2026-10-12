@@ -62,11 +62,16 @@ async function session(cls, query, shots) {
   check(s1.me.x > s0.me.x + 1, `[${cls}] moves with WASD (Δx=${(s1.me.x - s0.me.x).toFixed(2)})`);
 
   // Attack consumes stamina (server-validated).
-  await page.mouse.click(900, 360);
-  // stamina drops on the attack's first tick; regen waits 600 ms, so poll briefly (software GL is slow)
-  await page.waitForFunction((st) => window.__etherfall.inspect().me.stamina < st, s1.me.stamina, { timeout: 4000 }).catch(() => {});
+  // a spend also pushes staminaRegenAt forward; with software-GL frame stalls the sim can catch up several
+  // ticks per frame (spend + regen) between two polls, so that marker is the reliable signal
+  const regen0 = await page.evaluate(() => { const g = window.__etherfall; return g.transport.room?.sim.entities.get(g.transport.playerId)?.staminaRegenAt ?? 0; });
+  const spent = () => page.evaluate(([st, r0]) => { const g = window.__etherfall; const e = g.transport.room?.sim.entities.get(g.transport.playerId); return g.inspect().me.stamina < st || (e?.staminaRegenAt ?? 0) > r0; }, [s1.me.stamina, regen0]);
+  await page.mouse.move(900, 360);
+  await page.mouse.down();
+  for (let i = 0; i < 40 && !(await spent()); i++) await page.waitForTimeout(100);
+  await page.mouse.up();
   const s2 = await page.evaluate(() => window.__etherfall.inspect());
-  check(s2.me.stamina < s1.me.stamina, `[${cls}] light attack spends stamina (${s1.me.stamina.toFixed(0)} → ${s2.me.stamina.toFixed(0)})`);
+  check(await spent(), `[${cls}] light attack spends stamina (${s1.me.stamina.toFixed(0)} → ${s2.me.stamina.toFixed(0)})`);
   await page.keyboard.press('KeyQ');
   await page.waitForTimeout(300);
   await page.screenshot({ path: join(outDir, `${shots}-combat.png`) });
@@ -160,16 +165,24 @@ await session('warlock', '&day=0.34', 'warlock-night');
     while (me.level < 10) sim.grantXp(me, 2000, 'test');
   });
   await page.keyboard.press('KeyK');
-  await page.waitForSelector('#talent-vg\\.b1:not([disabled])', { timeout: 5000 });
-  await page.click('#talent-vg\\.b1');
-  await page.click('#subclass-paladin');
-  await page.waitForTimeout(400);
+  await page.waitForSelector('.tree-canvas', { timeout: 5000 });
+  await page.waitForTimeout(500);
+  // walk the Paladino arm on the canvas: ring → arm → skill node (Luz Sagrada) → title at 5 points
+  for (const id of ['vg.r0', 'vg.paladin.0', 'vg.paladin.1a', 'vg.paladin.2', 'vg.paladin.3a', 'vg.paladin.4']) {
+    const pos = await page.evaluate((nid) => window.__etherfall.talents.nodeClientPos(nid), id);
+    await page.mouse.click(pos.x, pos.y);
+    // wait until the panel's own snapshot shows the node (the next click's adjacency check uses it)
+    await page.waitForFunction((nid) => (window.__etherfall.talents.me?.talents?.[nid] ?? 0) > 0, id, { timeout: 12000 }).catch(() => {});
+  }
+  await page.waitForSelector('[data-equip="pal_light:a1"]', { timeout: 8000 }).catch(() => {});
+  await page.click('[data-equip="pal_light:a1"]').catch(() => {});
+  await page.waitForTimeout(600);
   const t = await page.evaluate(() => {
     const g = window.__etherfall;
     const me = g.transport.room.sim.entities.get(g.transport.playerId);
-    return { rank: me.talents['vg.b1'] ?? 0, sub: me.subclass };
+    return { nodes: Object.keys(me.talents).length, sub: me.subclass, a1: me.loadout.a1 };
   });
-  check(t.rank === 1 && t.sub === 'paladin', `[0.5] talent panel allocates a talent and picks a subclass (rank ${t.rank}, ${t.sub})`);
+  check(t.nodes === 6 && t.sub === 'paladin' && t.a1 === 'pal_light', `[0.9] skill tree: 6 nodes bought by clicking, title Paladino, Luz Sagrada on slot 1 (${t.nodes}, ${t.sub}, ${t.a1})`);
   await page.screenshot({ path: join(outDir, 'talents.png') });
   check(errors.length === 0, `[0.5] no page errors${errors.length ? ': ' + errors[0] : ''}`);
   await page.close();

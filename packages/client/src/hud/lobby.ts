@@ -1,4 +1,4 @@
-import { CLASSES, SUBCLASSES, type CharacterSummary, type ClassId } from '@etherfall/shared';
+import { CLASSES, archetypeOf, type CharacterSummary, type ClassId } from '@etherfall/shared';
 import { Connection, type AnyServerMsg } from '../net/wsTransport';
 
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] => {
@@ -133,7 +133,7 @@ export class OnlineLobby {
     if (!this.chars.length) list.append(h('p', 'hint', 'Nenhum personagem ainda: escolha uma classe nos cartões acima e crie o primeiro.'));
     for (const c of this.chars) {
       const row = h('div', 'char-row');
-      const sub = c.subclass ? SUBCLASSES[c.classId].find((s) => s.id === c.subclass)?.name : null;
+      const sub = archetypeOf(c.classId, c.subclass)?.name ?? null;
       const info = h('div', 'char-info');
       info.append(h('b', '', c.name), h('span', 'hint', ` ${CLASSES[c.classId].name}${sub ? ` · ${sub}` : ''} · Nível ${c.level}`));
       const play = h('button', 'btn primary', 'Jogar');

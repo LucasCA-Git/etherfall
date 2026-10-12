@@ -141,7 +141,7 @@ export function actionPreMove(ctx: SimContext, e: Entity): void {
         const y = cy + Math.sin(ang) * rr;
         const at = ctx.tick + s.delay + i * s.interval;
         ctx.scheduleStrike(e, a.id, x, y, at);
-        ctx.emit({ type: 'strikeWarn', ownerId: e.id, x, y, radius: s.radius, ticks: at - ctx.tick });
+        ctx.emit({ type: 'strikeWarn', ownerId: e.id, actionId: a.id, x, y, radius: s.radius, ticks: at - ctx.tick });
       }
     }
     if (def.seal) castSeal(ctx, e, def, a.dir);
@@ -345,7 +345,7 @@ export function resolveHit(
   // Poise: hyper armor frames ignore poise damage entirely.
   if (result === 'hit' && hit.status && target.hp > 0) {
     const st = hit.status.id;
-    const power = st === 'slow' ? hit.status.power * (1 + talentBonus(attacker, 'slowPower')) : st === 'poison' || st === 'curse' ? hit.status.power * (1 + talentBonus(attacker, 'dotPower')) : hit.status.power;
+    const power = st === 'slow' ? hit.status.power * (1 + talentBonus(attacker, 'slowPower')) : st === 'poison' || st === 'curse' || st === 'burn' ? hit.status.power * (1 + talentBonus(attacker, 'dotPower')) : hit.status.power;
     ctx.applyStatus(target, hit.status.id, hit.status.ticks, power, attacker.id);
   }
   const steal = talentBonus(attacker, 'lifesteal') + (hit.drain ?? 0);

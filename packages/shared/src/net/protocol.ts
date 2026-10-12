@@ -1,4 +1,4 @@
-import { Btn, type ClassId, type InputCommand, type SimEvent } from '../sim/types';
+import { Btn, type AbilitySlot, type ClassId, type InputCommand, type SimEvent } from '../sim/types';
 import type { Snapshot } from './snapshot';
 
 /**
@@ -19,8 +19,8 @@ export type ClientMsg =
   | { t: 'allocate'; attr: 'str' | 'dex' | 'vit' | 'end' | 'int' | 'wil' | 'lck' }
   /** Spend one talent point on a node (validated by the server). */
   | { t: 'talent'; node: string }
-  /** Choose the subclass once, at SUBCLASS_LEVEL. */
-  | { t: 'subclass'; id: string }
+  /** Put an unlocked skill in an ability slot (`action` null = class default). */
+  | { t: 'equip'; slot: AbilitySlot; action: string | null }
   /** Refund all attribute and talent points (only while seated at a bonfire). */
   | { t: 'respec' };
 

@@ -2,7 +2,7 @@ import { inWindow, isDead } from '../combat/combat';
 import { xpToNext } from '../data/curves';
 import { talentPointsFree } from '../data/talents';
 import type { Simulation } from '../sim/simulation';
-import type { ClassId, EntityKind, StatusId } from '../sim/types';
+import type { AbilitySlot, ClassId, EntityKind, StatusId } from '../sim/types';
 
 /** Render/replication view of an entity. Everything a client needs, nothing it could abuse. */
 export interface EntitySnap {
@@ -48,6 +48,7 @@ export interface EntitySnap {
   talents?: Record<string, number>;
   talentPoints?: number;
   subclass?: string | null;
+  loadout?: Partial<Record<AbilitySlot, string>>;
 }
 
 export interface Snapshot {
@@ -82,7 +83,7 @@ export function buildSnapshot(sim: Simulation, viewerId: number, radius = 30): S
       cooldowns: e === viewer ? { ...e.cooldowns } : {},
       statuses: e.statuses.filter((s) => s.until > sim.tick).map((s) => s.id),
       ...(e === viewer
-        ? { xp: e.xp, xpNext: xpToNext(e.level), unspent: e.unspent, attrs: { ...e.attrs }, essenceMark: e.essenceMark ? { ...e.essenceMark } : null, talents: { ...e.talents }, talentPoints: talentPointsFree(e), subclass: e.subclass }
+        ? { xp: e.xp, xpNext: xpToNext(e.level), unspent: e.unspent, attrs: { ...e.attrs }, essenceMark: e.essenceMark ? { ...e.essenceMark } : null, talents: { ...e.talents }, talentPoints: talentPointsFree(e), subclass: e.subclass, loadout: { ...e.loadout } }
         : {}),
     });
   }
