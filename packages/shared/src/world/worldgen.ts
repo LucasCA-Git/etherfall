@@ -4,7 +4,8 @@ import type { Vec2 } from '../math/vec2';
 import { Tile, isWalkable } from './tiles';
 import { buildCastle, buildDungeon, makePortals, type BuildCtx } from './structures';
 
-export type PropKind = 'tree' | 'pine' | 'rock' | 'ruinWall' | 'pillar' | 'bonfire' | 'bush' | 'castleWall' | 'tower' | 'torch';
+/** `chest`: size = tier (0 wood, 1 iron, 2 gold). */
+export type PropKind = 'tree' | 'pine' | 'rock' | 'ruinWall' | 'pillar' | 'bonfire' | 'bush' | 'castleWall' | 'tower' | 'torch' | 'chest';
 
 /** A static world object. `r` is the physical collider radius (may be smaller than the visual). */
 export interface Prop {
@@ -306,6 +307,23 @@ export function generateWorld(seed: number, size = WORLD_SIZE): WorldData {
       }
     }
   }
+  // chests scattered through the wilds: wood near camp, iron farther out, one in the ruins
+  {
+    const chests: Array<{ x: number; y: number }> = [];
+    addProp({ kind: 'chest', x: ruins.x - 3, y: ruins.y + 2, r: 0.45, size: 1, solid: true, v: rng.next() });
+    let tries = 0;
+    while (chests.length < 22 && tries++ < 4000) {
+      const x = Math.floor(rng.range(6, W - 6)) + 0.5;
+      const y = Math.floor(rng.range(6, H - 6)) + 0.5;
+      const t = get(Math.floor(x), Math.floor(y));
+      if (!reach[Math.floor(y) * W + Math.floor(x)] || t === Tile.ShallowWater) continue;
+      const d = Math.hypot(x - spawn.x, y - spawn.y);
+      if (d < 10 || nearCastle(x, y) || chests.some((c) => Math.hypot(c.x - x, c.y - y) < 14)) continue;
+      if (props.some((p) => p.solid && Math.hypot(p.x - x, p.y - y) < p.r + 1.4)) continue;
+      chests.push({ x, y });
+      addProp({ kind: 'chest', x, y, r: 0.45, size: d > 70 && rng.next() < 0.5 ? 1 : d > 90 && rng.next() < 0.25 ? 2 : 0, solid: true, v: rng.next() });
+    }
+  }
   const enemySpawns: EnemySpawn[] = [];
   const solidNear = (x: number, y: number) => props.some((p) => p.solid && Math.hypot(p.x - x, p.y - y) < p.r + 0.9);
   // Guaranteed ruin guardians.
@@ -328,14 +346,40 @@ export function generateWorld(seed: number, size = WORLD_SIZE): WorldData {
     if (solidNear(x, y) || nearCastle(x, y)) continue;
     const far = Math.hypot(x - spawn.x, y - spawn.y) > 50;
     const roll = rng.next();
-    enemySpawns.push({ x, y, enemyId: far && roll < 0.05 ? 'bonegiant' : far && roll < 0.12 ? 'giantspider' : far && roll < 0.2 ? 'vampire' : roll < 0.55 ? 'ashwolf' : 'hollow' });
+    const enemyId = far
+      ? roll < 0.05 ? 'bonegiant' : roll < 0.11 ? 'giantspider' : roll < 0.17 ? 'vampire' : roll < 0.27 ? 'fire_ant' : roll < 0.36 ? 'ice_ant'
+        : roll < 0.45 ? 'skeleton_archer' : roll < 0.52 ? 'cursed_grave' : roll < 0.62 ? 'skeleton' : roll < 0.8 ? 'ashwolf' : 'hollow'
+      : roll < 0.35 ? 'ashwolf' : roll < 0.6 ? 'goblin' : 'hollow';
+    enemySpawns.push({ x, y, enemyId });
+  }
+  // goblin camps: a chief with his band, in the middle distance
+  const camps = enemySpawns.slice(fixed).filter((e) => {
+    const d = Math.hypot(e.x - spawn.x, e.y - spawn.y);
+    return d > 28 && d < 70;
+  }).slice(0, 3);
+  for (const c of camps) {
+    c.enemyId = 'goblin_chief';
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI * 2 + 0.5;
+      const x = c.x + Math.cos(a) * 2.2;
+      const y = c.y + Math.sin(a) * 1.8;
+      if (reach[Math.floor(y) * W + Math.floor(x)] && !solidNear(x, y)) enemySpawns.push({ x, y, enemyId: 'goblin' });
+    }
+  }
+  // dragons: the Ash Dragon in the farthest open ground, a frost wyvern by the lake
+  {
+    const open = enemySpawns.slice(fixed).filter((e) => e.enemyId !== 'goblin' && e.enemyId !== 'goblin_chief');
+    const farthest = open.sort((a, b) => Math.hypot(b.x - spawn.x, b.y - spawn.y) - Math.hypot(a.x - spawn.x, a.y - spawn.y))[0];
+    if (farthest) farthest.enemyId = 'fire_dragon';
+    const byLake = open.filter((e) => e !== farthest && e.enemyId !== 'bonegiant').sort((a, b) => Math.hypot(a.x - lake.x, a.y - lake.y) - Math.hypot(b.x - lake.x, b.y - lake.y))[0];
+    if (byLake && Math.hypot(byLake.x - spawn.x, byLake.y - spawn.y) > 30) byLake.enemyId = 'frost_wyvern';
   }
   // epic giants: at least two roam the far wilds (the farthest open spawns from camp)
   const giants = enemySpawns.filter((e) => e.enemyId === 'bonegiant').length;
   if (giants < 2) {
     enemySpawns
       .slice(fixed)
-      .filter((e) => e.enemyId !== 'bonegiant')
+      .filter((e) => !['bonegiant', 'fire_dragon', 'frost_wyvern', 'goblin_chief', 'goblin'].includes(e.enemyId))
       .sort((a, b) => Math.hypot(b.x - spawn.x, b.y - spawn.y) - Math.hypot(a.x - spawn.x, a.y - spawn.y))
       .slice(0, 2 - giants)
       .forEach((e) => (e.enemyId = 'bonegiant'));

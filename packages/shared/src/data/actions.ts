@@ -1,3 +1,4 @@
+import { CREATURE_ACTIONS } from './creatures';
 import type { AttrKey, DamageType, StatusId } from '../sim/types';
 import { TREE_SKILLS } from './treeskills';
 
@@ -442,6 +443,7 @@ const defs: ActionDef[] = [
     projectile: { id: 'web', speed: 11, radius: 0.35, ttl: 40, hit: { range: 0, arc: Math.PI, damage: 18, poise: 10, knockback: 1, scaling: {}, type: 'physical', parryable: false, status: { id: 'slow', ticks: 75, power: 0.55 } } },
   },
   ...TREE_SKILLS,
+  ...CREATURE_ACTIONS,
 ];
 
 export const ACTIONS: Readonly<Record<string, ActionDef>> = Object.fromEntries(defs.map((d) => [d.id, d]));

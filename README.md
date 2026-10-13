@@ -85,9 +85,10 @@ npm run build:single   # gera o HTML único packages/client/dist/etherfall.html
 | Esquiva (invulnerável por um instante) | Espaço |
 | Correr | Shift |
 | Habilidades da classe | **Q, E, 1, 2, 3, 4** (e **R** para o Bruxo) |
-| Sentar na fogueira / usar portal | **F** |
+| Sentar na fogueira / usar portal / abrir baú | **F** |
+| Inventário (equipar, desequipar, largar, imbuir com runas) | **I** |
 | Ficha de atributos | **C** |
-| Talentos e subclasse | **K** |
+| Árvore de habilidades | **K** |
 | Mapa / Menu / Desempenho | **M** / **Esc** / **F3** |
 | Zoom | Roda do mouse |
 
@@ -223,7 +224,7 @@ Variáveis de ambiente (opcionais):
 ## 8. Desenvolvimento
 
 ```bash
-npm test                 # 133 testes: simulação, combate, talentos, invocações, saves, contas, servidor WebSocket
+npm test                 # 149 testes: simulação, combate, talentos, invocações, saves, contas, servidor WebSocket
 npm run build && npm run e2e   # E2E no Chromium: classes, fogueira, talentos, login online, saves offline
 ```
 O E2E precisa de um Chromium. Use `CHROMIUM_PATH=/caminho/chrome` ou `npx playwright install chromium`.
@@ -250,6 +251,5 @@ A arquitetura completa está em [`_bmad-output/planning-artifacts/architecture.m
 
 ## Licença e originalidade
 O conteúdo (nomes, criaturas, mapas, glifos, modelos e sons procedurais) é original deste projeto,
-**exceto os sprites dos heróis jogáveis**: vêm do "Isometric Hero" de Clint Bellanger (projeto Flare),
-licença CC-BY-SA 3.0 — detalhes e obrigações em [CREDITS.md](CREDITS.md). Para voltar aos modelos 3D
-procedurais, abra o jogo com `?sprites=0`.
+**exceto a arte dos heróis, heroínas e criaturas**, que vem do projeto Flare (CC-BY-SA 3.0) — detalhes e
+obrigações em [CREDITS.md](CREDITS.md). Para voltar aos modelos 3D procedurais, abra o jogo com `?sprites=0`.

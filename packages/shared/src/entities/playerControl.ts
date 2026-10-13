@@ -62,7 +62,7 @@ export function updatePlayer(ctx: SimContext, e: Entity): void {
     e.action = null;
     if (pressed & Btn.Interact) return;
   }
-  if (pressed & Btn.Interact && !e.action && !tryPortal(ctx, e)) tryRest(ctx, e);
+  if (pressed & Btn.Interact && !e.action && !tryPortal(ctx, e) && !tryChest(ctx, e)) tryRest(ctx, e);
 
   if (e.action) {
     const def = getAction(e.action.id);
@@ -162,6 +162,21 @@ function tryPortal(ctx: SimContext, e: Entity): boolean {
   }
   return false;
 }
+
+/** Open the nearest unopened chest in reach. */
+function tryChest(ctx: SimContext, e: Entity): boolean {
+  let best: { id: number; d: number } | null = null;
+  for (const p of ctx.world.props) {
+    if (p.kind !== 'chest' || e.openedChests?.includes(p.id)) continue;
+    const d = Math.hypot(p.x - e.pos.x, p.y - e.pos.y);
+    if (d <= CHEST_RANGE + p.r && (!best || d < best.d)) best = { id: p.id, d };
+  }
+  if (!best) return false;
+  // a bonfire nearer than the chest wins (sit first, loot after)
+  const fire = ctx.world.props.some((p) => p.kind === 'bonfire' && Math.hypot(p.x - e.pos.x, p.y - e.pos.y) < best!.d);
+  return fire ? false : ctx.openChest(e, best.id);
+}
+export const CHEST_RANGE = 1.6;
 
 function tryRest(ctx: SimContext, e: Entity): void {
   for (const p of ctx.world.props) {

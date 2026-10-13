@@ -1,3 +1,4 @@
+import { BAG_SIZE, RARITIES, canEquip, gearEffects, itemName, itemSlot, rollChest, rollEnemyDrops, runeElement, type ChestTier, type Item, type ItemSlot } from '../data/items';
 import { actionHits, actionPostTick, actionPreMove, DOT_INTERVAL, forceAction, isDead, resolveHit } from '../combat/combat';
 import { getAction } from '../data/actions';
 import { CLASSES } from '../data/classes';
@@ -13,7 +14,7 @@ import { SpatialHash } from '../physics/spatialHash';
 import { tileAt, type WorldData } from '../world/worldgen';
 import { isWalkable, Tile } from '../world/tiles';
 import type { DynamicItem, SimContext, StaticCollider } from './context';
-import { ABILITY_SLOTS, DT, type AbilitySlot, type AttrKey, type ClassId, type Entity, type InputCommand, type PendingStrike, type SimEvent, type StatusId, type Zone } from './types';
+import { ABILITY_SLOTS, DT, type AbilitySlot, type AttrKey, type ClassId, type Entity, type Gender, type InputCommand, type GroundLoot, type PendingStrike, type SimEvent, type StatusId, type Zone } from './types';
 import { addStatus, expireStatuses } from '../combat/statuses';
 import { canAllocateTalent, cleanLoadout, dominantArchetype, talentBonus, unlockedSkills } from '../data/talents';
 import type { ActionDef } from '../data/actions';
@@ -43,6 +44,9 @@ export class Simulation implements SimContext {
   readonly zones: Zone[] = [];
   private strikes: PendingStrike[] = [];
   private nextZoneId = 1;
+  /** Items lying on the ground (enemy drops, chest contents, dropped by players). */
+  readonly loot: GroundLoot[] = [];
+  private nextLootId = 1;
 
   constructor(opts: SimulationOptions) {
     this.world = opts.world;
@@ -54,10 +58,11 @@ export class Simulation implements SimContext {
   }
 
   // ---------------------------------------------------------------- API
-  addPlayer(name: string, classId: ClassId, pos?: Vec2): Entity {
+  addPlayer(name: string, classId: ClassId, pos?: Vec2, gender: Gender = 'm'): Entity {
     const n = [...this.entities.values()].filter((e) => e.kind === 'player').length;
     const p = pos ?? { x: this.world.spawn.x + (n % 3) - 1, y: this.world.spawn.y + 1 + Math.floor(n / 3) };
     const e = createPlayer(this.nextId++, name, classId, p, this.tick);
+    e.gender = gender;
     this.entities.set(e.id, e);
     return e;
   }
@@ -67,7 +72,7 @@ export class Simulation implements SimContext {
     const okSpot = (p: { x: number; y: number } | null) =>
       p && p.x > 1 && p.y > 1 && p.x < this.world.width - 1 && p.y < this.world.height - 1 && isWalkable(tileAt(this.world, p.x, p.y)) ? p : null;
     const start = okSpot(save.pos) ?? okSpot(save.respawn) ?? undefined;
-    const e = this.addPlayer(save.name, save.classId, start ? { x: start.x, y: start.y } : undefined);
+    const e = this.addPlayer(save.name, save.classId, start ? { x: start.x, y: start.y } : undefined, save.gender === 'f' ? 'f' : 'm');
     e.level = save.level;
     e.xp = save.xp;
     e.unspent = save.unspent;
@@ -77,6 +82,11 @@ export class Simulation implements SimContext {
     e.subclass = dominantArchetype(save.classId, e.talents);
     e.discovered = [...save.discovered];
     e.essenceMark = save.essenceMark ? { ...save.essenceMark } : null;
+    e.inventory = (save.inventory ?? []).map((it) => ({ ...it, affixes: it.affixes.map((a) => ({ ...a })) }));
+    e.equipment = {};
+    for (const [slot, it] of Object.entries(save.equipment ?? {}) as [ItemSlot, Item][]) if (it && itemSlot(it) === slot && canEquip(e, it)) e.equipment[slot] = { ...it };
+    e.gear = gearEffects(e.equipment);
+    e.openedChests = [...(save.openedChests ?? [])];
     const rp = okSpot(save.respawn);
     if (rp) e.respawnPoint = { x: rp.x, y: rp.y };
     this.refreshStats(e, true);
@@ -292,6 +302,126 @@ export class Simulation implements SimContext {
     return true;
   }
 
+  // ------------------------------------------------------------ items
+  /** Equip a bag item (the one in that slot goes back to the bag). */
+  equipItem(playerId: number, uid: string): boolean {
+    const p = this.entities.get(playerId);
+    if (!p || p.kind !== 'player' || isDead(p) || !p.inventory || !p.equipment) return false;
+    const i = p.inventory.findIndex((it) => it.uid === uid);
+    const it = p.inventory[i];
+    const slot = it ? itemSlot(it) : null;
+    if (!it || !slot || !canEquip(p, it)) return false;
+    p.inventory.splice(i, 1);
+    const old = p.equipment[slot];
+    if (old) p.inventory.splice(i, 0, old);
+    p.equipment[slot] = it;
+    this.gearChanged(p);
+    this.emit({ type: 'equip', id: p.id, slot, name: itemName(it) });
+    return true;
+  }
+
+  /** Move an equipped item back to the bag (needs a free bag slot). */
+  unequipItem(playerId: number, slot: ItemSlot): boolean {
+    const p = this.entities.get(playerId);
+    if (!p || p.kind !== 'player' || !p.inventory || !p.equipment?.[slot]) return false;
+    if (p.inventory.length >= BAG_SIZE) {
+      this.emit({ type: 'bagFull', id: p.id });
+      return false;
+    }
+    p.inventory.push(p.equipment[slot]!);
+    delete p.equipment[slot];
+    this.gearChanged(p);
+    return true;
+  }
+
+  /** Drop a bag item on the ground (anyone may take it). */
+  dropItem(playerId: number, uid: string): boolean {
+    const p = this.entities.get(playerId);
+    if (!p || p.kind !== 'player' || !p.inventory) return false;
+    const i = p.inventory.findIndex((it) => it.uid === uid);
+    if (i < 0) return false;
+    const [it] = p.inventory.splice(i, 1);
+    this.addLoot(it!, p.pos.x + Math.cos(p.facing) * 0.8, p.pos.y + Math.sin(p.facing) * 0.8, -1, 30 * 60 * 5);
+    return true;
+  }
+
+  /** Seated at a bonfire: consume a rune to imbue the equipped weapon with its element. */
+  imbueWeapon(playerId: number, runeUid: string): boolean {
+    const p = this.entities.get(playerId);
+    const w = p?.equipment?.weapon;
+    if (!p || !w || p.action?.id !== 'sit' || !p.inventory) return false;
+    const i = p.inventory.findIndex((it) => it.uid === runeUid);
+    const el = i >= 0 ? runeElement(p.inventory[i]!) : null;
+    if (!el) return false;
+    p.inventory.splice(i, 1);
+    // stronger on better weapons; legendaries keep their own element unless re-imbued
+    w.imbue = { element: el, power: Math.min(0.3, 0.12 + RARITIES.indexOf(w.rarity) * 0.03) };
+    this.gearChanged(p);
+    this.emit({ type: 'imbue', id: p.id, element: el, x: p.pos.x, y: p.pos.y });
+    return true;
+  }
+
+  private gearChanged(p: Entity): void {
+    p.gear = gearEffects(p.equipment ?? {});
+    this.refreshStats(p, false);
+  }
+
+  addLoot(item: Item, x: number, y: number, owner: number, ttl = 30 * 60 * 3): GroundLoot {
+    const l: GroundLoot = { id: this.nextLootId++, item, x, y, owner, freeAt: this.tick + (owner >= 0 ? 30 * 45 : 0), until: this.tick + ttl };
+    this.loot.push(l);
+    this.emit({ type: 'lootDrop', id: l.id, x, y, rarity: item.rarity });
+    return l;
+  }
+
+  /** Scatter items around a point. */
+  private scatterLoot(items: Item[], x: number, y: number, owner: number): void {
+    items.forEach((it, k) => {
+      const a = (k / Math.max(1, items.length)) * Math.PI * 2 + this.rng.next() * 0.8;
+      const r = 0.7 + this.rng.next() * 0.6;
+      let lx = x + Math.cos(a) * r;
+      let ly = y + Math.sin(a) * r;
+      if (!isWalkable(tileAt(this.world, lx, ly))) {
+        lx = x;
+        ly = y;
+      }
+      this.addLoot(it, lx, ly, owner);
+    });
+  }
+
+  openChest(e: Entity, propId: number): boolean {
+    const prop = this.world.props.find((p) => p.id === propId && p.kind === 'chest');
+    if (!prop || e.kind !== 'player' || !e.openedChests || e.openedChests.includes(propId)) return false;
+    e.openedChests.push(propId);
+    const tier = Math.max(0, Math.min(2, Math.round(prop.size))) as ChestTier;
+    this.emit({ type: 'chest', id: e.id, prop: propId, tier, x: prop.x, y: prop.y });
+    this.scatterLoot(rollChest(this.rng, tier, e.level, e.classId), prop.x, prop.y + 0.9, e.id);
+    return true;
+  }
+
+  /** Walk over an item to take it (if it is yours or free); expired items vanish. */
+  private stepLoot(): void {
+    for (let i = this.loot.length - 1; i >= 0; i--) {
+      const l = this.loot[i]!;
+      if (this.tick >= l.until) {
+        this.loot.splice(i, 1);
+        continue;
+      }
+      for (const p of this.entities.values()) {
+        if (p.kind !== 'player' || isDead(p) || !p.inventory) continue;
+        if (l.owner >= 0 && l.owner !== p.id && this.tick < l.freeAt) continue;
+        if ((p.pos.x - l.x) ** 2 + (p.pos.y - l.y) ** 2 > 0.9 * 0.9) continue;
+        if (p.inventory.length >= BAG_SIZE) {
+          if (this.tick % 60 === 0) this.emit({ type: 'bagFull', id: p.id });
+          continue;
+        }
+        p.inventory.push(l.item);
+        this.loot.splice(i, 1);
+        this.emit({ type: 'pickup', id: p.id, name: itemName(l.item), rarity: l.item.rarity, x: l.x, y: l.y });
+        break;
+      }
+    }
+  }
+
   private refreshStats(p: Entity, fullHeal: boolean): void {
     if (!p.classId) return;
     const base = deriveStats(p.attrs, p.level, CLASSES[p.classId].poiseBonus);
@@ -326,6 +456,8 @@ export class Simulation implements SimContext {
       const xp = getEnemy(target.enemyId).xp;
       this.emit({ type: 'kill', killer: credit.id, victim: target.id, xp });
       this.grantXp(credit, xp, 'kill');
+      const drops = rollEnemyDrops(this.rng, target.enemyId, xp, credit.level + (xp >= 400 ? 3 : 0), credit.classId);
+      if (drops.length) this.scatterLoot(drops, target.pos.x, target.pos.y, credit.id);
     }
   }
 
@@ -410,6 +542,7 @@ export class Simulation implements SimContext {
       if (e.kind === 'player') this.explore(e);
     }
     this.processRespawns();
+    if (this.loot.length) this.stepLoot();
 
     this.tick++;
     const out = this.events;

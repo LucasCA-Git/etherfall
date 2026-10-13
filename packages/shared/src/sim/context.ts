@@ -41,4 +41,6 @@ export interface SimContext {
   /** Call `count` allied creatures next to `owner` for `ticks` ticks (keeps at most `max` of that kind). */
   summon(owner: Entity, enemyId: string, count: number, ticks: number, max: number, dir: number): void;
   readonly zones: Zone[];
+  /** Open a chest prop for this player (once per character); returns false when nothing happened. */
+  openChest(e: Entity, propId: number): boolean;
 }

@@ -193,7 +193,7 @@ export async function startServer(o: ServerOptions): Promise<RunningServer> {
         return send(c, [{ t: 'chars', chars: store.listChars(c.user) }]);
       case 'createChar': {
         if (!c.user) return send(c, [{ t: 'lobbyError', message: 'Faça login primeiro' }]);
-        const r = store.createChar(c.user, m.name, m.classId);
+        const r = store.createChar(c.user, m.name, m.classId, m.gender);
         if (!r.ok) return send(c, [{ t: 'lobbyError', message: r.error }]);
         return send(c, [{ t: 'chars', chars: r.value }]); // written by the autosave
       }

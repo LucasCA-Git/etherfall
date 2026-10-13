@@ -1,4 +1,4 @@
-import { DT, TICK_RATE, Tile, generateWorld, tileAt, type AbilitySlot, type CharacterSave, type ClassId, type EntitySnap } from '@etherfall/shared';
+import { CHEST_NAMES, DT, TICK_RATE, Tile, generateWorld, tileAt, type AbilitySlot, type Prop, type CharacterSave, type ClassId, type EntitySnap } from '@etherfall/shared';
 import { AudioEngine } from '../audio/audio';
 import { Hud } from '../hud/hud';
 import { WorldMap } from '../hud/map';
@@ -19,6 +19,7 @@ import { interpolate } from './interp';
 import { GrassField } from './grass';
 import { Minimap } from '../hud/minimap';
 import { TalentPanel } from '../hud/talents';
+import { InventoryPanel, type ItemOp } from '../hud/inventory';
 import { ActorLayer, headOffset } from '../render3d/actors3d';
 
 export interface GameOptions {
@@ -68,6 +69,9 @@ export class Game {
   readonly sheet: CharacterSheet;
   readonly map: WorldMap;
   readonly talents: TalentPanel;
+  readonly inventory: InventoryPanel;
+  /** Chest props of the world (prompt + open state come from the viewer's snapshot). */
+  private chests: Prop[] = [];
   private dyn = new InstanceBatch(2048);
   private dynShadow = new InstanceBatch(256);
   private dynReflect = new InstanceBatch(64);
@@ -129,12 +133,14 @@ export class Game {
       if (err && err.t === 'error') this.hud.toast(err.message);
       else o.audio.play('ui');
     });
-    const request = (msg: { t: 'talent'; node: string } | { t: 'equip'; slot: AbilitySlot; action: string | null } | { t: 'respec' }) => {
+    const request = (msg: { t: 'talent'; node: string } | { t: 'equip'; slot: AbilitySlot; action: string | null } | { t: 'respec' } | ({ t: 'item' } & ItemOp)) => {
       const err = this.transport.send(msg).find((m) => m.t === 'error');
       if (err && err.t === 'error') this.hud.toast(err.message);
       else o.audio.play('ui');
     };
     this.talents = new TalentPanel(o.hudRoot, o.classId, (node) => request({ t: 'talent', node }), (slot, action) => request({ t: 'equip', slot, action }), () => request({ t: 'respec' }));
+    this.inventory = new InventoryPanel(o.hudRoot, (op) => request({ t: 'item', ...op }));
+    this.chests = world.props.filter((p) => p.kind === 'chest');
     this.map = new WorldMap(o.hudRoot, world);
     this.minimap = new Minimap(o.hudRoot, world);
     const me = this.transport.room?.sim.entities.get(this.transport.playerId);
@@ -359,6 +365,10 @@ export class Game {
         grass: this.grass,
         renderDistance: this.renderer.settings.renderDistance,
         vignette: this.renderer.settings.vignette,
+        contrast: this.renderer.settings.contrast,
+        density: this.renderer.settings.density,
+        dither: this.renderer.settings.dither,
+        edges: this.renderer.settings.edgeIntensity,
       });
     }
 
@@ -369,15 +379,22 @@ export class Game {
       const key = this.o.keymap.interact[0]?.replace('Key', '') ?? 'F';
       const portal = this.effects.nearestPortal(me.x, me.y);
       const b = this.effects.nearestBonfire(me.x, me.y, 2.35);
+      const opened = me.openedChests ?? [];
+      let chest: { x: number; y: number; size: number } | null = null;
+      for (const c of this.chests) if (!opened.includes(c.id) && Math.hypot(c.x - me.x, c.y - me.y) < 2.05 && (!b || Math.hypot(c.x - me.x, c.y - me.y) < Math.hypot(b.x - me.x, b.y - me.y))) chest = c;
       if (portal) prompt = { x: portal.x, y: portal.y - 0.8, text: `[${key}] ${portal.name}` };
+      else if (chest) prompt = { x: chest.x, y: chest.y - 0.8, text: `[${key}] Abrir ${CHEST_NAMES[Math.round(chest.size)] ?? 'baú'}` };
       else if (b) prompt = { x: b.x, y: b.y - 0.6, text: `[${key}] Sentar na fogueira` };
     }
+    this.overlay.groundLoot = cur.loot ?? [];
+    this.overlay.viewer = me ? { x: me.x, y: me.y } : null;
     this.overlay.draw(this.views, this.transport.playerId, toScreen, ppm, cur.tick, prompt, this.actors3d ? headOffset : undefined);
     if (me) this.hud.update(me, cur.tick, this.pickTarget(mouseWX, mouseWY));
     this.map.draw(this.views, this.transport.playerId);
     this.minimap.draw(this.views, this.transport.playerId, this.map.open);
     this.sheet.update(me);
     this.talents.update(me);
+    this.inventory.update(me);
 
     this.cpuMs = this.cpuMs * 0.9 + (performance.now() - t0) * 0.1;
     this.fpsAcc += dt;
@@ -449,6 +466,7 @@ export class Game {
         if (this.map.open) this.map.toggle();
         else if (this.sheet.open) this.sheet.toggle(me);
         else if (this.talents.open) this.talents.toggle(me);
+        else if (this.inventory.open) this.inventory.toggle(me);
         else this.menu.toggle();
         break;
       case 'map':
@@ -464,7 +482,7 @@ export class Game {
         this.debug = !this.debug;
         break;
       case 'inventory':
-        this.hud.toast('Inventário: chega na Etapa 4 (itens, loot e crafting)');
+        this.inventory.toggle(me);
         break;
       case 'quests':
         this.hud.toast('Missões: ainda não implementadas');

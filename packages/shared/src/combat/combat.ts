@@ -310,6 +310,11 @@ export function resolveHit(
     }
   }
 
+  // weapon imbuement: extra elemental damage on every player hit
+  const imbue = attacker.kind === 'player' ? attacker.equipment?.weapon?.imbue ?? null : null;
+  if (imbue) raw *= 1 + imbue.power * 0.5;
+  // item armour (players)
+  if (target.kind === 'player') raw *= 1 - Math.min(0.6, Math.max(0, talentBonus(target, 'armor')));
   const guard = statusPower(target, 'ironguard', ctx.tick);
   if (guard > 0) raw *= 1 - guard;
   let kb = hit.knockback * (guard > 0 ? 0.3 : 1);
@@ -348,6 +353,7 @@ export function resolveHit(
     const power = st === 'slow' ? hit.status.power * (1 + talentBonus(attacker, 'slowPower')) : st === 'poison' || st === 'curse' || st === 'burn' ? hit.status.power * (1 + talentBonus(attacker, 'dotPower')) : hit.status.power;
     ctx.applyStatus(target, hit.status.id, hit.status.ticks, power, attacker.id);
   }
+  if (result === 'hit' && imbue && target.hp > 0) applyImbue(ctx, attacker, target, imbue, dmg);
   const steal = talentBonus(attacker, 'lifesteal') + (hit.drain ?? 0);
   if (steal > 0 && !isDead(attacker)) ctx.heal(attacker, attacker, dmg * steal);
   if (result === 'hit' && guard <= 0 && !inWindow(target, 'hyperArmor') && target.action?.id !== 'guardbreak') {
@@ -366,4 +372,28 @@ export function resolveHit(
 
   if (target.hp <= 0) ctx.kill(target, attacker);
   return result;
+}
+
+/** On-hit effect of an imbued weapon (35% chance for the status ones; holy always heals a little). */
+function applyImbue(ctx: SimContext, attacker: Entity, target: Entity, imbue: { element: string; power: number }, dmg: number): void {
+  const p = imbue.power;
+  if (imbue.element === 'holy') {
+    if (!isDead(attacker)) ctx.heal(attacker, attacker, dmg * p * 0.4);
+    return;
+  }
+  if (ctx.rng.next() > 0.35) return;
+  switch (imbue.element) {
+    case 'fire': ctx.applyStatus(target, 'burn', 75, Math.max(3, dmg * p * 0.25), attacker.id); break;
+    case 'frost': ctx.applyStatus(target, 'slow', 50, 0.25 + p, attacker.id); break;
+    case 'shadow': ctx.applyStatus(target, 'curse', 90, Math.max(3, dmg * p * 0.2), attacker.id); break;
+    case 'poison': ctx.applyStatus(target, 'poison', 120, Math.max(3, dmg * p * 0.18), attacker.id); break;
+    case 'lightning':
+      target.poise -= 25 + dmg * p;
+      if (target.poise <= 0 && target.hp > 0 && !inWindow(target, 'hyperArmor')) {
+        target.poise = target.maxPoise;
+        forceAction(target, 'stagger');
+        ctx.emit({ type: 'stagger', target: target.id, x: target.pos.x, y: target.pos.y });
+      }
+      break;
+  }
 }

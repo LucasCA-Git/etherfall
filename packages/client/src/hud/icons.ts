@@ -75,7 +75,7 @@ const STAT_ICON: Record<TalentStat, [string, Element]> = {
   dmg: ['fist', 'blood'], dmgPhysical: ['sword', 'physical'], dmgArcane: ['star', 'arcane'], maxHp: ['heart', 'blood'], maxStamina: ['feet', 'nature'],
   maxMana: ['swirl', 'frost'], manaRegen: ['drop', 'frost'], staminaRegen: ['feet', 'nature'], cooldown: ['swirl', 'lightning'], healPower: ['cross', 'holy'],
   blockAbsorb: ['shield', 'physical'], poise: ['tower', 'physical'], critChance: ['eye', 'fire'], lifesteal: ['drop', 'blood'], berserk: ['skull', 'blood'],
-  slowPower: ['snow', 'frost'], dotPower: ['flask', 'poison'], moveSpeed: ['wing', 'spirit'],
+  slowPower: ['snow', 'frost'], dotPower: ['flask', 'poison'], moveSpeed: ['wing', 'spirit'], armor: ['shield', 'physical'],
 };
 
 /** Motif + colour of an action (tree skills carry them; kits use the table above). */

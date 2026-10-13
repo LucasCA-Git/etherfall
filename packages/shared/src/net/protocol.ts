@@ -1,4 +1,5 @@
-import { Btn, type AbilitySlot, type ClassId, type InputCommand, type SimEvent } from '../sim/types';
+import type { ItemSlot } from '../data/items';
+import { Btn, type AbilitySlot, type ClassId, type Gender, type InputCommand, type SimEvent } from '../sim/types';
 import type { Snapshot } from './snapshot';
 
 /**
@@ -11,7 +12,7 @@ export const PROTOCOL_VERSION = 1;
 
 export type ClientMsg =
   | { t: 'hello'; version: number }
-  | { t: 'join'; name: string; classId: ClassId }
+  | { t: 'join'; name: string; classId: ClassId; gender?: Gender }
   /** Inputs are batched and the last few are resent for packet-loss tolerance. */
   | { t: 'input'; cmds: InputCommand[] }
   | { t: 'ping'; time: number }
@@ -21,6 +22,9 @@ export type ClientMsg =
   | { t: 'talent'; node: string }
   /** Put an unlocked skill in an ability slot (`action` null = class default). */
   | { t: 'equip'; slot: AbilitySlot; action: string | null }
+  /** Items: equip from the bag, unequip a slot, drop a bag item, imbue the weapon with a rune (seated at a bonfire). */
+  | { t: 'item'; op: 'equip' | 'drop' | 'imbue'; uid: string }
+  | { t: 'item'; op: 'unequip'; slot: ItemSlot }
   /** Refund all attribute and talent points (only while seated at a bonfire). */
   | { t: 'respec' };
 

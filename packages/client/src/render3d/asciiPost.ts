@@ -9,11 +9,23 @@ import * as THREE from 'three';
  *  2. compose    — every screen pixel samples its cell's glyph from the atlas over a navy void.
  */
 
-/** Atlas layout: 16 columns × 4 rows. Rows 0–2: density ramp (sorted by measured ink). Row 3: strokes. */
+/**
+ * Atlas layout: 16 columns × 4 rows.
+ *   0–23  main density ramp (space → '@' / 'W'), sorted by measured ink
+ *   24–35 wall ramp: vertical glyphs for surfaces facing sideways (| ! [ ] I H #)
+ *   36–47 floor ramp: flat glyphs for surfaces facing up (. , - _ ~ = )
+ *   48–55 strokes at 8 angles, 56 'o' splash, 57 '.'
+ * A curated, well spread set reads as ASCII art; a long ramp of letters reads as noise.
+ */
 const COLS = 16;
 const ROWS = 4;
-const CANDIDATES = " .'`,:;-~_^\"=+*!ilrcvxzjtfnuoaesyqdpbkhgwm#%&$@WMBQ8NR0";
-export const RAMP_LEN = 44;
+const CANDIDATES = " .'`,:;-~=+*!/\\|?<>()xoe#%&$@WM";
+const WALL_CANDS = " .':|!][lI}{1H#";
+const FLOOR_CANDS = " .,`'-_~:;=+";
+export const RAMP_LEN = 24;
+export const WALL_BASE = 24;
+export const FLOOR_BASE = 36;
+export const SUB_RAMP = 12;
 /** 8 stroke angles at 48..55, splash 'o' at 56, '.' at 57. */
 export const STROKE_BASE = 48;
 export const SPLASH = 56;
@@ -30,7 +42,8 @@ export function buildAsciiAtlas(TW: number, TH: number): { texture: THREE.Canvas
   // fill the cell: at small sizes glyphs touch their neighbours, like a dense terminal
   // glyphs leave a 1-px gutter so neighbouring letters stay separate even at tiny sizes
   const fontPx = Math.max(4, Math.round(Math.min(Math.max(1, TH - 1), Math.max(1, TW - 1) * 1.75)));
-  const font = `${fontPx}px "DejaVu Sans Mono", "JetBrains Mono", Consolas, Menlo, monospace`;
+  // bold strokes from 9 px up: letters stand out instead of dissolving into grain
+  const font = `${TH >= 9 ? 'bold ' : ''}${fontPx}px "DejaVu Sans Mono", "JetBrains Mono", Consolas, Menlo, monospace`;
   // measure ink coverage of every candidate and keep an evenly spread ramp
   const probe = document.createElement('canvas');
   probe.width = TW;
@@ -40,7 +53,7 @@ export function buildAsciiAtlas(TW: number, TH: number): { texture: THREE.Canvas
   pg.textAlign = 'center';
   pg.textBaseline = 'middle';
   const ink = new Map<string, number>();
-  for (const ch of new Set(CANDIDATES)) {
+  for (const ch of new Set(CANDIDATES + WALL_CANDS + FLOOR_CANDS)) {
     pg.fillStyle = '#000';
     pg.fillRect(0, 0, TW, TH);
     pg.fillStyle = '#fff';
@@ -50,23 +63,30 @@ export function buildAsciiAtlas(TW: number, TH: number): { texture: THREE.Canvas
     for (let i = 0; i < d.length; i += 4) s += d[i]!;
     ink.set(ch, s / (255 * TW * TH));
   }
-  const sorted = [...ink.entries()].sort((a, b) => a[1] - b[1]);
-  const maxInk = sorted[sorted.length - 1]![1] || 1;
-  const ramp: string[] = [' '];
-  for (let i = 1; i < RAMP_LEN; i++) {
-    const want = (i / (RAMP_LEN - 1)) * maxInk;
-    let best = sorted[1]![0];
-    let bd = Infinity;
-    for (const [ch, v] of sorted) {
-      if (ch === ' ') continue;
-      const d = Math.abs(v - want) + (ramp.includes(ch) ? 0.02 : 0);
-      if (d < bd) {
-        bd = d;
-        best = ch;
+  /** `len` glyphs from `cands`, evenly spread over the measured ink (space first). */
+  const pickRamp = (cands: string, len: number): string[] => {
+    const sorted = [...new Set(cands)].map((ch) => [ch, ink.get(ch) ?? 0] as const).sort((a, b) => a[1] - b[1]);
+    const maxInk = sorted[sorted.length - 1]![1] || 1;
+    const out: string[] = [' '];
+    for (let i = 1; i < len; i++) {
+      const want = (i / (len - 1)) * maxInk;
+      let best = sorted[1]![0];
+      let bd = Infinity;
+      for (const [ch, v] of sorted) {
+        if (ch === ' ') continue;
+        const d = Math.abs(v - want) + (out.includes(ch) ? 0.03 : 0);
+        if (d < bd) {
+          bd = d;
+          best = ch;
+        }
       }
+      out.push(best);
     }
-    ramp.push(best);
-  }
+    return out;
+  };
+  const ramp = pickRamp(CANDIDATES, RAMP_LEN);
+  const wall = pickRamp(WALL_CANDS, SUB_RAMP);
+  const floor = pickRamp(FLOOR_CANDS, SUB_RAMP);
   g.fillStyle = '#000';
   g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = '#fff';
@@ -85,6 +105,8 @@ export function buildAsciiAtlas(TW: number, TH: number): { texture: THREE.Canvas
     g.restore();
   };
   ramp.forEach((ch, i) => put(i, ch));
+  wall.forEach((ch, i) => put(WALL_BASE + i, ch));
+  floor.forEach((ch, i) => put(FLOOR_BASE + i, ch));
   // strokes drawn as lines at 8 screen angles (0°, 22.5°, … 157.5° from horizontal) so they
   // connect cell to cell like blades of grass, rain or the edges of a silhouette
   g.strokeStyle = '#fff';
@@ -136,8 +158,38 @@ uniform float uTime;
 uniform float uRain;
 uniform float uRampLen;
 uniform vec2 uWind;
+uniform highp sampler2D tDepth; // scene depth (orthographic: linear in view distance)
+uniform vec2 uDepthRange;       // camera near, far
+uniform float uPitch;           // camera pitch below the horizon (rad)
+uniform float uContrast;        // ramp contrast (settings)
+uniform float uDensity;         // glyph density (settings)
+uniform float uDither;          // glyph jitter (settings)
+uniform float uEdges;           // edge strokes + wall/floor glyphs (settings)
 out vec4 o;
 const float PI = 3.14159265;
+float viewDist(ivec2 p, ivec2 lim) {
+  float d = texelFetch(tDepth, clamp(p, ivec2(0), lim), 0).r;
+  return d >= 0.99999 ? -1.0 : uDepthRange.x + d * (uDepthRange.y - uDepthRange.x);
+}
+/**
+ * Surface class of a cell from the depth buffer: 1 floor (faces up), 2 wall (vertical), 0 unknown
+ * or a depth break (silhouette). The view-space normal of a plane is (dz/dx, dz/dy, 1).
+ */
+int surfaceClass(ivec2 base, ivec2 lim) {
+  ivec2 k = max(uSub - 1, ivec2(1));
+  float d0 = viewDist(base, lim);
+  float dx = viewDist(base + ivec2(k.x, 0), lim);
+  float dy = viewDist(base + ivec2(0, k.y), lim);
+  if (d0 < 0.0 || dx < 0.0 || dy < 0.0) return 0;
+  float gx = (dx - d0) / (float(k.x) * uView.z / float(uSub.x));
+  float gy = (dy - d0) / (float(k.y) * uView.w / float(uSub.y));
+  if (abs(gx) > 6.0 || abs(gy) > 6.0) return 0;
+  vec3 n = normalize(vec3(gx, gy, 1.0));
+  float up = dot(n, vec3(0.0, cos(uPitch), sin(uPitch)));
+  if (up > 0.82) return 1;
+  if (up < 0.4) return 2;
+  return 0;
+}
 vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
 vec3 toSrgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
@@ -240,16 +292,28 @@ void main() {
     float det = sqrt((jxx - jyy) * (jxx - jyy) + 4.0 * jxy * jxy);
     float coherence = tr > 1e-6 ? det / tr : 0.0;
     float strength = sqrt(tr / n);
-    float density = clamp(pow(max(lum - 0.06, 0.0), 0.9) * 1.6, 0.0, 1.0);
-    if (n > 3.0 && strength > 0.045 + lum * 0.25 && coherence > 0.74 && peak > 0.06) {
+    // high-contrast ramp: shadows fall to empty space, lit stone / firelight climb to '#' '@'
+    float x = clamp((lum - 0.03) * 1.9 * uDensity, 0.0, 1.0);
+    float density = pow(x, 0.75 + 0.45 * (uContrast - 1.0));
+    density = mix(density, smoothstep(0.0, 1.0, density), clamp(uContrast - 1.0, 0.0, 1.0));
+    if (n > 3.0 && strength > (0.045 + lum * 0.25) * (1.6 - uEdges) && coherence > 0.74 && peak > 0.06) {
       float ga = 0.5 * atan(2.0 * jxy, jxx - jyy);
       glyph = strokeGlyph(ga + PI * 0.5);
     } else {
-      float jitter = (rnd - 0.5) * 5.0;
-      glyph = clamp(floor(density * (uRampLen - 1.0) + 0.5 + jitter * step(0.12, density)), 0.0, uRampLen - 1.0);
-      if (density < 0.035) glyph = 0.0;
+      float jitter = (rnd - 0.5) * 3.0 * uDither;
+      int sc = uEdges > 0.05 ? surfaceClass(base, lim) : 0;
+      if (sc == 1) {
+        // floors: flat glyphs . , - _ ~ =
+        glyph = float(${FLOOR_BASE}) + clamp(floor(density * float(${SUB_RAMP - 1}) + 0.5 + jitter * 0.5), 0.0, float(${SUB_RAMP - 1}));
+      } else if (sc == 2) {
+        // walls and trunks: vertical glyphs | ! [ ] I H
+        glyph = float(${WALL_BASE}) + clamp(floor(density * float(${SUB_RAMP - 1}) + 0.5 + jitter * 0.5), 0.0, float(${SUB_RAMP - 1}));
+      } else {
+        glyph = clamp(floor(density * (uRampLen - 1.0) + 0.5 + jitter), 0.0, uRampLen - 1.0);
+      }
+      if (density < 0.04) glyph = 0.0;
     }
-    fg = tint(avg, lum, 0.78, 0.22 + peak * 1.55);
+    fg = tint(avg, lum, 0.8, (0.16 + peak * 1.7) * (0.8 + 0.2 * uContrast));
   }
 
   // rain: world-locked falling streaks (sized in meters, so they look the same at any cell size)
@@ -296,6 +360,11 @@ float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float strokeGlyph(float ang) { return float(${STROKE_BASE}) + mod(floor(mod(ang, PI) / (PI / 8.0) + 0.5), 8.0); }
 bool isActor(float a) { return a > 0.62 && a < 0.8; }
+/** Shaded luma at a fine cell's centre, or -1 when no actor covers it. */
+float centreLuma(ivec2 c, ivec2 lim) {
+  vec4 t = texelFetch(tScene, clamp(c * uSub + uSub / 2, ivec2(0), lim), 0);
+  return isActor(t.a) ? luma(toSrgb(aces(t.rgb * uExposure))) : -1.0;
+}
 /** Actor coverage (0..1) of a fine cell. */
 float cover(ivec2 c, ivec2 lim) {
   float k = 0.0, n = 0.0;
@@ -308,6 +377,16 @@ float cover(ivec2 c, ivec2 lim) {
     }
   }
   return k / n;
+}
+/** Luma gradient across the neighbouring fine cells (written to g); true when it marks an inner edge. */
+bool fineDetail(ivec2 c, ivec2 lim, float al, inout vec2 g) {
+  float lN = centreLuma(c + ivec2(0, 1), lim), lS = centreLuma(c - ivec2(0, 1), lim);
+  float lE = centreLuma(c + ivec2(1, 0), lim), lW = centreLuma(c - ivec2(1, 0), lim);
+  if (min(min(lN, lS), min(lE, lW)) < 0.0) return false;
+  vec2 d = vec2(lE - lW, (lN - lS) * 0.6);
+  if (length(d) < 0.12 + al * 0.35) return false;
+  g = d;
+  return true;
 }
 void main() {
   ivec2 cell = ivec2(gl_FragCoord.xy);
@@ -351,9 +430,14 @@ void main() {
     glyph = strokeGlyph(atan(g.y, g.x) + PI * 0.5);
     vec3 f = mix(vec3(al), ac, 0.75);
     fg = f / max(max(f.r, max(f.g, f.b)), 1e-3) * clamp(0.5 + peak * 1.4, 0.0, 1.0);
+  } else if (fineDetail(cell, lim, al, g)) {
+    // inner contour: a strong shading step inside the body (arm over chest, belt, cape fold)
+    glyph = strokeGlyph(atan(g.y, g.x) + PI * 0.5);
+    vec3 f = mix(vec3(al), ac, 0.8);
+    fg = f / max(max(f.r, max(f.g, f.b)), 1e-3) * clamp(0.12 + peak * 1.2, 0.0, 1.0);
   } else {
     // inside: glyph ink follows the real shading, dark cloth stays dark
-    float d = clamp(0.3 + al * 2.0, 0.0, 1.0);
+    float d = clamp(0.14 + al * 1.6, 0.0, 1.0);
     glyph = clamp(floor(d * (uRampLen - 1.0) + (rnd - 0.5) * 3.0 + 0.5), 1.0, uRampLen - 1.0);
     vec3 f = mix(vec3(al), ac, 0.9);
     fg = f / max(max(f.r, max(f.g, f.b)), 1e-3) * clamp(0.18 + peak * 1.9, 0.0, 1.0);

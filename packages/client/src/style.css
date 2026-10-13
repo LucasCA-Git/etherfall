@@ -192,3 +192,35 @@ input[type='range'] { width: 100%; accent-color: var(--gold); }
 .slot .key, .slot .lbl { position: relative; text-shadow: 0 1px 2px #000, 0 0 4px #000; }
 .slot .lbl { background: linear-gradient(transparent, rgba(0, 0, 0, 0.75)); margin: 0 -4px -4px; padding: 6px 4px 3px; }
 .slot.lacking .slot-icon { filter: grayscale(0.8) brightness(0.6); }
+
+/* herói / heroína picker on the title screen */
+.genders { display: flex; gap: 8px; justify-content: center; margin: 8px 0 2px; }
+.genders .btn { min-width: 110px; }
+
+/* ---------- inventory (I) ---------- */
+.inventory { position: absolute; z-index: 25; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(820px, 94vw); max-height: 88vh; overflow: auto;
+  display: grid; grid-template-columns: minmax(250px, 1fr) 1.35fr; gap: 14px; padding: 14px; background: #06070c !important; }
+.inv-equip, .inv-bag { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.inv-slot { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 8px; text-align: left; padding: 5px 8px; background: #0b0d14; border: 1px solid #1d2230; color: inherit; font: inherit; cursor: default; }
+.inv-slot.full { cursor: pointer; border-color: #2c3346; }
+.inv-slot.full:hover { border-color: #6d7aa0; background: #10131d; }
+.inv-slot-text { display: grid; }
+.inv-slot-name { font-size: 10px; color: #6b7287; text-transform: uppercase; letter-spacing: 0.08em; }
+.inv-item-name { font-size: 12px; color: #4a5064; }
+.inv-glyph { font: 700 20px "DejaVu Sans Mono", Menlo, monospace; text-align: center; color: #3a4052; text-shadow: 0 0 6px rgba(0, 0, 0, 0.9); }
+.inv-stats { font-size: 11px; color: #9aa3ba; margin-top: 4px; }
+.inv-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 64px)); gap: 5px; }
+.inv-cell { position: relative; aspect-ratio: 1; background: #0b0d14; border: 1px solid #1a1f2c; display: grid; place-items: center; color: inherit; font: inherit; padding: 0; }
+.inv-cell[data-uid] { cursor: pointer; }
+.inv-cell[data-uid]:hover { border-color: #8a96b8; background: #121624; }
+.inv-cell.r-uncommon { border-color: #2a5a26; } .inv-cell.r-rare { border-color: #2a4378; } .inv-cell.r-epic { border-color: #55307a; }
+.inv-cell.r-legendary { border-color: #a35f12; box-shadow: inset 0 0 12px rgba(255, 150, 40, 0.25); }
+.inv-cell.unusable .inv-glyph { opacity: 0.45; }
+.inv-cell.unusable::after { content: '×'; position: absolute; right: 3px; top: 1px; font-size: 10px; color: #c84a3a; }
+.inv-lvl { position: absolute; left: 3px; bottom: 1px; font-size: 9px; color: #7b8296; }
+.inv-tip { position: fixed; z-index: 60; max-width: 300px; padding: 8px 10px; background: #05060a; border: 1px solid #3a4258; pointer-events: none; display: grid; gap: 3px; font-size: 12px; }
+.inv-tip-name { font-weight: 700; font-size: 13px; }
+.inv-line { color: #b9c3dc; }
+.inv-lore { color: #9c8a6a; font-style: italic; }
+.inv-hint { color: #6e7a96; font-size: 11px; margin-top: 4px; }
+@media (max-width: 640px) { .inventory { grid-template-columns: 1fr; } }

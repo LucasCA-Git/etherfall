@@ -4,7 +4,7 @@ import { ACTIONS, type EntitySnap, type WorldData } from '@etherfall/shared';
 import { actPhase, humanPose, type AnimState, type HumanPose, type Style } from '../render/rig';
 import type { Light } from '../render/renderer';
 import { PITCH, SIN_P, buildWorld3D, type World3D } from './world3d';
-import { SPRITES_ON, buildSprite, disposeSprite, poseSprite, spriteReady, type SpriteRig } from './sprites3d';
+import { buildSprite, disposeSprite, lookFor, poseSprite, spriteKey, type SpriteRig } from './sprites3d';
 import { CELL_FS, COMPOSE_FS, FINE_FS, FULL_VS, buildAsciiAtlas } from './asciiPost';
 import { buildHumanoid, buildSpider, buildWolf, disposeRig, setSegment, type ActorRig, type HumanKind, type HumanRig, type SpiderRig, type WolfRig } from './models3d';
 
@@ -25,11 +25,16 @@ const POINT_LIGHTS = 8;
 /** Screen-space height (meters above the feet) for names / health bars over a 3D actor. */
 export function headOffset(e: EntitySnap): number {
   if (e.enemyId === 'ashwolf') return 1.15;
-  if (e.enemyId === 'giantspider') return 2.3;
+  if (e.enemyId === 'giantspider') return 2.6;
   if (e.enemyId === 'bonegiant') return 4.1;
   if (e.enemyId === 'voidguard') return 3.1;
   if (e.enemyId === 'imp') return 1.3;
   if (e.enemyId === 'spiritwolf' || e.enemyId === 'felhound') return 1.15;
+  if (e.enemyId === 'fire_dragon') return 4.6;
+  if (e.enemyId === 'frost_wyvern') return 3.6;
+  if (e.enemyId === 'cursed_grave') return 2.4;
+  if (e.enemyId === 'fire_ant' || e.enemyId === 'ice_ant') return 1.4;
+  if (e.enemyId === 'goblin') return 1.5;
   if (e.classId === 'barbarian') return 2.05;
   return 1.95;
 }
@@ -72,6 +77,14 @@ export interface ActorFrame {
   /** Meters around the player before the view fades to the void. */
   renderDistance: number;
   vignette: number;
+  /** Luminance contrast of the glyph ramp (settings). */
+  contrast: number;
+  /** Glyph density (>1 fills darker areas). */
+  density: number;
+  /** Random glyph jitter (0 = clean bands). */
+  dither: number;
+  /** Strength of edge strokes and wall/floor glyphs. */
+  edges: number;
 }
 
 interface Slot {
@@ -223,6 +236,8 @@ export class ActorLayer {
     r.toneMapping = THREE.NoToneMapping;
     this.renderer = r;
     this.sceneRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true });
+    // depth as a texture: the cell pass rebuilds surface normals (walls get | [ ], floors get . _ -)
+    this.sceneRT.depthTexture = new THREE.DepthTexture(4, 4, THREE.UnsignedIntType);
     this.cellRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.UnsignedByteType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false });
     this.fineRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.UnsignedByteType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false });
     const atlas = buildAsciiAtlas(6, 10);
@@ -245,6 +260,13 @@ export class ActorLayer {
       uRain: { value: 0 },
       uRampLen: { value: atlas.rampLen },
       uWind: { value: new THREE.Vector2(0.5, 0) },
+      tDepth: { value: this.sceneRT.depthTexture },
+      uDepthRange: { value: new THREE.Vector2(0.1, 200) },
+      uPitch: { value: PITCH },
+      uContrast: { value: 1.25 },
+      uDensity: { value: 1 },
+      uDither: { value: 0.35 },
+      uEdges: { value: 0.5 },
     });
     this.finePass = pass(FINE_FS, {
       tScene: { value: this.sceneRT.texture },
@@ -323,8 +345,8 @@ export class ActorLayer {
     const H = Math.max(1, Math.floor(ch * dpr));
     let cellH = Math.max(1, Math.round((CELL_Q || f.cellSize) * dpr));
     let cellW = Math.max(1, Math.round(cellH * 0.6));
-    // characters get a grid twice as fine once its glyphs are still legible (>= 4 px tall)
-    const fineK = cellH >= 8 ? 2 : 1;
+    // characters get a grid twice as fine only when its glyphs stay legible letters (>= 8 px tall)
+    const fineK = cellH >= 16 ? 2 : 1;
     if (fineK === 2) {
       cellH = Math.round(cellH / 2) * 2;
       cellW = Math.max(4, Math.round(cellW / 2) * 2);
@@ -434,14 +456,15 @@ export class ActorLayer {
         continue;
       }
       const k0 = kindOf(e);
-      // player heroes use the isometric sprite sheets once loaded (sprites3d.ts)
-      const kind = e.kind === 'player' && e.classId && SPRITES_ON && spriteReady(e.classId) ? `sprite:${e.classId}` : k0;
-      if (s && (s.rig.type === 'human' ? s.rig.kind : s.rig.type === 'sprite' ? `sprite:${s.rig.cls}` : s.rig.type) !== kind) {
+      // heroes and most creatures use the Flare sprite sheets once loaded (sprites3d.ts)
+      const look = lookFor(e);
+      const kind = look ? spriteKey(look) : k0;
+      if (s && (s.rig.type === 'human' ? s.rig.kind : s.rig.type === 'sprite' ? s.rig.key : s.rig.type) !== kind) {
         this.retire(e.id, s);
         s = undefined;
       }
       if (!s) {
-        const rig = kind.startsWith('sprite:') ? buildSprite(e.classId!) : k0 === 'wolf' ? buildWolf() : k0 === 'spider' ? buildSpider() : buildHumanoid(k0);
+        const rig = look ? buildSprite(look) : k0 === 'wolf' ? buildWolf() : k0 === 'spider' ? buildSpider() : buildHumanoid(k0);
         s = { rig, unseen: 0, yaw: Math.PI / 2 - e.facing, deadT: 0, block: 0, pose: null };
         this.slots.set(e.id, s);
         for (const m of rig.materials) tagActor(m);
@@ -474,6 +497,11 @@ export class ActorLayer {
     cu.uFade!.value = f.renderDistance;
     cu.uTime!.value = f.time;
     cu.uRain!.value = f.rain;
+    cu.uContrast!.value = f.contrast;
+    cu.uDensity!.value = f.density;
+    cu.uDither!.value = f.dither;
+    cu.uEdges!.value = f.edges;
+    (cu.uDepthRange!.value as THREE.Vector2).set(cam.near, cam.far);
     this.postScene.remove(this.composePass);
     this.postScene.add(this.cellPass);
     rr.setRenderTarget(this.cellRT);
@@ -593,7 +621,7 @@ export class ActorLayer {
     else if (warn > 0) add.setRGB(warn * 0.5, warn * 0.08, 0.02);
     else if (st.includes('empower')) add.copy(EMPOWER).multiplyScalar(2);
     const [ar, ag, ab] = f.ambient;
-    const light = 0.75 + 0.45 * Math.min(1, Math.max(ar, ag, ab)) + 0.25 * Math.max(0, Math.min(1, f.sunLight)) + f.flash;
+    const light = 0.8 + 0.4 * Math.min(1, Math.max(ar, ag, ab)) + 0.25 * Math.max(0, Math.min(1, f.sunLight)) + f.flash;
     r.root.position.y = a.id === 'barb_leap' && a.stage === 'active' ? Math.sin(Math.min(1, a.k) * Math.PI) * 1.1 : 0;
     r.root.rotation.y = 0;
     const spin = (SPIN.has(a.id) || ACTIONS[a.id]?.anim === 'spin') && a.stage === 'active';

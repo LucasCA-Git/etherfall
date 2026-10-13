@@ -183,6 +183,27 @@ await session('warlock', '&day=0.34', 'warlock-night');
     return { nodes: Object.keys(me.talents).length, sub: me.subclass, a1: me.loadout.a1 };
   });
   check(t.nodes === 6 && t.sub === 'paladin' && t.a1 === 'pal_light', `[0.9] skill tree: 6 nodes bought by clicking, title Paladino, Luz Sagrada on slot 1 (${t.nodes}, ${t.sub}, ${t.a1})`);
+  // 0.11 items: a dropped cuirass is picked up by walking over it and equipped from the inventory (I)
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const g = window.__etherfall;
+    const sim = g.transport.room.sim;
+    const me = sim.entities.get(g.transport.playerId);
+    if (me.action?.id === 'sit') me.action = null;
+    sim.addLoot({ uid: 'e2e-cuirass', base: 'cuirass', rarity: 'epic', level: 1, affixes: [{ stat: 'maxHp', value: 0.2 }], imbue: null, legend: null }, me.pos.x + 0.3, me.pos.y, me.id);
+  });
+  await page.waitForFunction(() => (window.__etherfall.transport.room.sim.entities.get(window.__etherfall.transport.playerId).inventory ?? []).some((i) => i.uid === 'e2e-cuirass'), null, { timeout: 15000 }).catch(() => {});
+  await page.keyboard.press('KeyI');
+  await page.waitForSelector('.inv-cell[data-uid="e2e-cuirass"]', { timeout: 15000 }).catch(() => {});
+  await page.click('.inv-cell[data-uid="e2e-cuirass"]').catch(() => {});
+  await page.waitForFunction(() => window.__etherfall.transport.room.sim.entities.get(window.__etherfall.transport.playerId).equipment?.chest?.uid === 'e2e-cuirass', null, { timeout: 15000 }).catch(() => {});
+  const inv = await page.evaluate(() => {
+    const me = window.__etherfall.transport.room.sim.entities.get(window.__etherfall.transport.playerId);
+    return { chest: me.equipment?.chest?.uid ?? null, panel: !document.querySelector('.inventory')?.classList.contains('hidden') };
+  });
+  check(inv.chest === 'e2e-cuirass' && inv.panel, `[0.11] loot picked up and equipped from the inventory panel (${inv.chest}, panel ${inv.panel})`);
+  await page.screenshot({ path: join(outDir, 'inventory.png') });
+  await page.keyboard.press('KeyI');
   await page.screenshot({ path: join(outDir, 'talents.png') });
   check(errors.length === 0, `[0.5] no page errors${errors.length ? ': ' + errors[0] : ''}`);
   await page.close();

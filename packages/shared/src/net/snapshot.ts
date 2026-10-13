@@ -1,8 +1,9 @@
 import { inWindow, isDead } from '../combat/combat';
 import { xpToNext } from '../data/curves';
 import { talentPointsFree } from '../data/talents';
+import { itemGlyph, itemName, type Item, type ItemSlot, type Rarity } from '../data/items';
 import type { Simulation } from '../sim/simulation';
-import type { AbilitySlot, ClassId, EntityKind, StatusId } from '../sim/types';
+import type { AbilitySlot, ClassId, EntityKind, Gender, StatusId } from '../sim/types';
 
 /** Render/replication view of an entity. Everything a client needs, nothing it could abuse. */
 export interface EntitySnap {
@@ -11,6 +12,7 @@ export interface EntitySnap {
   name: string;
   team: number;
   classId?: ClassId;
+  gender?: Gender;
   enemyId?: string;
   level: number;
   x: number;
@@ -49,6 +51,9 @@ export interface EntitySnap {
   talentPoints?: number;
   subclass?: string | null;
   loadout?: Partial<Record<AbilitySlot, string>>;
+  inventory?: Item[];
+  equipment?: Partial<Record<ItemSlot, Item>>;
+  openedChests?: number[];
 }
 
 export interface Snapshot {
@@ -56,6 +61,8 @@ export interface Snapshot {
   you: number;
   entities: EntitySnap[];
   zones: Array<{ id: number; kind: string; x: number; y: number; r: number; until: number; team: number }>;
+  /** Ground items the viewer can see (others' items show only once free). */
+  loot?: Array<{ id: number; x: number; y: number; rarity: Rarity; name: string; glyph: string; mine: boolean }>;
 }
 
 /**
@@ -73,7 +80,7 @@ export function buildSnapshot(sim: Simulation, viewerId: number, radius = 30): S
       if (dx * dx + dy * dy > r2) continue;
     }
     out.push({
-      id: e.id, kind: e.kind, name: e.name, team: e.team, classId: e.classId, enemyId: e.enemyId, level: e.level,
+      id: e.id, kind: e.kind, name: e.name, team: e.team, classId: e.classId, gender: e.gender, enemyId: e.enemyId, level: e.level,
       x: e.pos.x, y: e.pos.y, vx: e.vel.x, vy: e.vel.y, facing: e.facing, radius: e.radius,
       hp: e.hp, maxHp: e.maxHp, stamina: e.stamina, maxStamina: e.maxStamina, mana: e.mana, maxMana: e.maxMana,
       poise: e.poise, maxPoise: e.maxPoise,
@@ -83,12 +90,16 @@ export function buildSnapshot(sim: Simulation, viewerId: number, radius = 30): S
       cooldowns: e === viewer ? { ...e.cooldowns } : {},
       statuses: e.statuses.filter((s) => s.until > sim.tick).map((s) => s.id),
       ...(e === viewer
-        ? { xp: e.xp, xpNext: xpToNext(e.level), unspent: e.unspent, attrs: { ...e.attrs }, essenceMark: e.essenceMark ? { ...e.essenceMark } : null, talents: { ...e.talents }, talentPoints: talentPointsFree(e), subclass: e.subclass, loadout: { ...e.loadout } }
+        ? { xp: e.xp, xpNext: xpToNext(e.level), unspent: e.unspent, attrs: { ...e.attrs }, essenceMark: e.essenceMark ? { ...e.essenceMark } : null, talents: { ...e.talents }, talentPoints: talentPointsFree(e), subclass: e.subclass, loadout: { ...e.loadout },
+            inventory: e.inventory ?? [], equipment: { ...(e.equipment ?? {}) }, openedChests: e.openedChests ?? [] }
         : {}),
     });
   }
   const zones = sim.zones
     .filter((z) => !viewer || (z.x - viewer.pos.x) ** 2 + (z.y - viewer.pos.y) ** 2 <= (radius + z.r) ** 2)
     .map((z) => ({ id: z.id, kind: z.kind, x: z.x, y: z.y, r: z.r, until: z.until, team: z.team }));
-  return { tick: sim.tick, you: viewerId, entities: out, zones };
+  const loot = sim.loot
+    .filter((l) => (!viewer || (l.x - viewer.pos.x) ** 2 + (l.y - viewer.pos.y) ** 2 <= r2) && (l.owner < 0 || l.owner === viewerId || sim.tick >= l.freeAt))
+    .map((l) => ({ id: l.id, x: l.x, y: l.y, rarity: l.item.rarity, name: itemName(l.item), glyph: itemGlyph(l.item), mine: l.owner === viewerId }));
+  return { tick: sim.tick, you: viewerId, entities: out, zones, loot };
 }

@@ -1,4 +1,5 @@
 import type { DamageType } from '../sim/types';
+import { CREATURE_ENEMIES } from './creatures';
 
 export interface EnemyAttackChoice {
   action: string;
@@ -70,7 +71,7 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   },
   giantspider: {
     id: 'giantspider',
-    name: 'Aranha Gigante',
+    name: 'Formiga-Leão Gigante',
     hp: 420,
     poise: 70,
     radius: 1.4,
@@ -174,7 +175,7 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   },
   bonegiant: {
     id: 'bonegiant',
-    name: 'Colosso de Ossos',
+    name: 'Minotauro Colosso',
     hp: 1400,
     poise: 220,
     radius: 1.2,
@@ -193,6 +194,7 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
     attackCooldown: [40, 75],
     respawnTicks: 30 * 120,
   },
+  ...CREATURE_ENEMIES,
 };
 
 export function getEnemy(id: string): EnemyDef {

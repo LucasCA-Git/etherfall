@@ -8,6 +8,8 @@ export * from './physics/collision';
 export * from './data/actions';
 export * from './data/classes';
 export * from './data/enemies';
+export * from './data/items';
+export * from './data/creatures';
 export * from './data/curves';
 export * from './combat/combat';
 export * from './sim/types';

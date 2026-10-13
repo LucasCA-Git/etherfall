@@ -110,6 +110,10 @@ export function buildCastle(c: BuildCtx, cx: number, cy: number): CastleInfo {
   torch(c, cx + 2.2, ky1 - 0.6);
   for (const ox of [-4, 4]) for (const oy of [4.5, 7.5]) c.addProp({ kind: 'pillar', x: cx + ox, y: ky0 + oy, r: 0.4, size: 0.8, solid: true, v: c.rng.next() });
   const crypt = { x: cx, y: ky0 + 3 };
+  // treasure: a gold chest in the keep, iron chests in the bailey
+  c.addProp({ kind: 'chest', x: kx1 - 1.5, y: ky0 + 2.2, r: 0.45, size: 2, solid: true, v: c.rng.next() });
+  c.addProp({ kind: 'chest', x: kx0 + 2, y: ky1 + 4, r: 0.45, size: 1, solid: true, v: c.rng.next() });
+  c.addProp({ kind: 'chest', x: x0 + 4.5, y: y1 - 4.5, r: 0.45, size: 1, solid: true, v: c.rng.next() });
 
   // Courtyard: bonfire and two rows of pillars.
   c.addProp({ kind: 'bonfire', x: cx + 9, y: y1 - 6, r: 0.45, size: 0.6, solid: true, v: 0.7 });
@@ -121,6 +125,10 @@ export function buildCastle(c: BuildCtx, cx: number, cy: number): CastleInfo {
     { x: cx - 14, y: ky1 + 6, enemyId: 'hollow' },
     { x: cx + 14, y: ky1 + 2, enemyId: 'ashwolf' },
     { x: cx - 3, y: ky0 + 6.5, enemyId: 'vampire' },
+    { x: cx + 6, y: y1 - 6, enemyId: 'skeleton' },
+    { x: cx - 10, y: ky1 + 3, enemyId: 'skeleton_archer' },
+    { x: cx + 10, y: ky1 + 4, enemyId: 'skeleton_archer' },
+    { x: cx + 3, y: ky0 + 6.5, enemyId: 'skeleton_mage' },
   ];
   const region: Region = { kind: 'castle', name: 'Castelo de Vaelmor', x0, y0, x1: x1 + 1, y1: y1 + 1 };
   const poi: Poi = { id: 'castle', name: 'Castelo de Vaelmor', x: cx, y: cy + 4, r: 12, xp: 100 };
@@ -177,6 +185,11 @@ export function buildDungeon(c: BuildCtx, x0: number, y0: number, x1: number, y1
       }
     }
   }
+  // chests: iron in every other room, gold behind the last guardian
+  rooms.forEach((rm, i) => {
+    if (i === 0 || (i % 2 === 1 && i !== rooms.length - 1)) return;
+    c.addProp({ kind: 'chest', x: Math.floor(rm.x1 - 1.5) + 0.5, y: Math.floor(rm.y0 + 1.5) + 0.5, r: 0.45, size: i === rooms.length - 1 ? 2 : 1, solid: true, v: c.rng.next() });
+  });
   const s = rooms[0]!;
   c.addProp({ kind: 'bonfire', x: s.cx + 2.5, y: s.cy + 1, r: 0.45, size: 0.6, solid: true, v: 0.4 });
   const exit = { x: s.cx - 2.5, y: s.cy - 1.5 };
@@ -195,7 +208,9 @@ export function buildDungeon(c: BuildCtx, x0: number, y0: number, x1: number, y1
       spawns.push({ x: Math.floor(rm.cx + Math.cos(a) * 2) + 0.5, y: Math.floor(rm.cy + Math.sin(a) * 1.6) + 0.5, enemyId });
     };
     for (let k = 0; k < spiders; k++) place('giantspider');
-    for (let k = 0; k < hollows; k++) place('hollow');
+    for (let k = 0; k < hollows; k++) place(i % 3 === 1 ? 'skeleton' : 'hollow');
+    if (last) place('cursed_grave');
+    else if (i % 2 === 1) place('skeleton_mage');
   });
   const region: Region = { kind: 'dungeon', name: 'Cripta Afundada', x0, y0, x1: x1 + 1, y1: y1 + 1 };
   const poi: Poi = { id: 'crypt', name: 'Cripta Afundada', x: s.cx, y: s.cy, r: 5, xp: 150 };

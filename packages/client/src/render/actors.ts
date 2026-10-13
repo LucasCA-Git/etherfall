@@ -26,7 +26,7 @@ export interface ProjStyle {
   /** Point light for glowing projectiles (null for physical ones). */
   light: RGB | null;
 }
-const ARROWS = new Set(['bow_shot', 'bow_power', 'ranger_volley', 'ranger_poison', 'snp_pierce', 'snp_multishot']);
+const ARROWS = new Set(['skel_arrow', 'skel_volley', 'bow_shot', 'bow_power', 'ranger_volley', 'ranger_poison', 'snp_pierce', 'snp_multishot']);
 export function projectileStyle(name: string): ProjStyle {
   const def = ACTIONS[name];
   if (def?.element && def.projectile && !ARROWS.has(name)) {

@@ -104,7 +104,7 @@ export class AccountStore {
     return (this.db.accounts[this.key(user)]?.chars ?? []).map(summarize);
   }
 
-  createChar(user: string, rawName: unknown, classId: unknown): Result<CharacterSummary[]> {
+  createChar(user: string, rawName: unknown, classId: unknown, gender?: unknown): Result<CharacterSummary[]> {
     const acc = this.db.accounts[this.key(user)];
     if (!acc) return fail('Conta não encontrada');
     if (!isClassId(classId)) return fail('Classe inválida');
@@ -112,7 +112,7 @@ export class AccountStore {
     if (name.length < 2) return fail('Nome do personagem: 2 a 16 caracteres');
     if (acc.chars.length >= MAX_CHARS_PER_ACCOUNT) return fail(`Limite de ${MAX_CHARS_PER_ACCOUNT} personagens por conta`);
     if (this.names.has(name.toLowerCase())) return fail('Já existe um personagem com esse nome');
-    acc.chars.push(newCharacter(randomUUID(), name, classId as ClassId, Date.now()));
+    acc.chars.push(newCharacter(randomUUID(), name, classId as ClassId, Date.now(), gender === 'f' ? 'f' : 'm'));
     this.names.add(name.toLowerCase());
     this.dirty = true;
     return ok(this.listChars(user));

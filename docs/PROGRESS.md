@@ -1,6 +1,38 @@
 # ETHERFALL — Progresso
 
-_Última atualização: 12/10/2026 · Entrega 9 (0.9)_
+_Última atualização: 12/10/2026 · Entregas 10 e 11 (0.10 + 0.11)_
+
+## Novidades da 0.11 — itens, lendários, baús e imbuimento
+- **Inventário (I):** 9 espaços de equipamento (arma, mão secundária, cabeça, peito, mãos, pernas, pés, anel, amuleto) e
+  mochila de 24. Clique equipa, clique no equipamento desequipa, botão direito/Shift+clique larga no chão. Dica com
+  atributos, comparação com o equipado e motivo quando não dá para usar (classe ou nível).
+- **Raridades:** Comum, Incomum (1 afixo), Raro (2), Épico (3, às vezes já imbuído) e **Lendário**: 12 lendários únicos com
+  nome, história e atributos fixos (ex.: *Juramento de Vaelmor*, *Coroa das Cinzas* do Dragão, *Presa da Serpe*,
+  *Machado do Rei Goblin*). Armas e escudos são por classe; armaduras e joias servem a todos.
+- **Armadura:** novo atributo que reduz o dano recebido (até 60%).
+- **Imbuimento:** runas (fogo, gelo, sombra, sagrado, veneno, raio) caem de inimigos e baús; sentado numa fogueira,
+  clique na runa para imbuir a arma. Golpes ganham dano extra e efeito: queimadura, lentidão, maldição, cura, veneno
+  ou quebra de postura.
+- **Loot:** inimigos derrubam itens conforme a força (chefes sempre, 2–3 itens, lendário próprio); o item é só seu por
+  45 s, depois qualquer um pega. Ande por cima para pegar. Épicos e lendários brilham com um feixe de luz.
+- **Baús espalhados ([F]):** madeira (1 item), ferro (2 + runa) e dourado (3 + runa, chance de lendário) — no castelo,
+  na cripta, nas ruínas e ~22 pelo mapa. Cada personagem abre cada baú uma vez.
+- Tudo é rolado e validado no servidor; o save guarda mochila, equipamento e baús abertos (itens adulterados são
+  rejeitados ou limitados).
+
+## Novidades da 0.10 — criaturas do Flare, herói/heroína e ASCII legível
+- **Herói ou heroína:** escolha na tela inicial (e no lobby online); fica salvo no personagem. Os 14 visuais (7 classes × 2)
+  são montados das camadas do Flare: placas na Vanguarda, túnica de mago no Arcanista, couro no Arqueiro etc.
+- **Criaturas do Flare** (todas passam pelo pós-processo ASCII): Errante → zumbi, Colosso → Minotauro Colosso,
+  Aranha → Formiga-Leão Gigante, Guardião Abissal → esqueleto de elite, Guerreiro Ancestral → esqueleto espectral.
+- **Novas criaturas:** Goblin, Chefe Goblin (corneta chama o bando; acampamentos no meio do mapa), Esqueleto Soldado,
+  Esqueleto Arqueiro (rajada de 3 flechas), Esqueleto Necromante (gelo, maldição, chuva de ossos), Formiga de Fogo
+  (queimadura), Formiga Glacial (lentidão), Túmulo Amaldiçoado (ergue esqueletos), **Dragão das Cinzas** (chefe: sopro
+  de 7 bolas de fogo, investida, rabada) e **Serpe Glacial** perto do lago.
+- **ASCII legível:** células de 10 px por padrão (ajustável 1–18; saves antigos migram), rampa de densidade curada
+  (espaço → `. : - = + * # % @ W`), contraste forte (sombras somem, fogueiras e luz viram `#`/`@`), dithering mínimo,
+  fonte em negrito ≥ 9 px. O **depth buffer** reconstrói a normal de cada célula: paredes usam `| ! [ ] I H`, chão usa
+  `. , - _ ~ =`. Personagens ganham contornos internos (braço, cinto, capa).
 
 ## 0.9 — heróis com sprites isométricos (Flare)
 - Os 7 heróis jogáveis agora são desenhados a partir das folhas do "Isometric Hero" (Clint Bellanger, Flare, CC-BY-SA 3.0),

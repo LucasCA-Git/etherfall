@@ -1,4 +1,4 @@
-import { CLASSES, archetypeOf, type CharacterSummary, type ClassId } from '@etherfall/shared';
+import { CLASSES, archetypeOf, type CharacterSummary, type ClassId, type Gender } from '@etherfall/shared';
 import { Connection, type AnyServerMsg } from '../net/wsTransport';
 
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] => {
@@ -11,6 +11,8 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: s
 export interface LobbyHooks {
   /** Class currently highlighted on the class cards (used to create a character). */
   selectedClass(): ClassId;
+  /** Hero body picked on the title screen. */
+  selectedGender(): Gender;
   /** The server accepted `play`: start the game on this connection. */
   onPlay(conn: Connection, playerId: number, seed: number, char: CharacterSummary, roomCode: string): void;
 }
@@ -174,7 +176,7 @@ export class OnlineLobby {
     create.id = 'lobby-create';
     create.addEventListener('click', () => {
       const cls = this.hooks.selectedClass();
-      void this.request({ t: 'createChar', name: name.value.trim(), classId: cls }, `Criando ${CLASSES[cls].name}...`);
+      void this.request({ t: 'createChar', name: name.value.trim(), classId: cls, gender: this.hooks.selectedGender() }, `Criando ${CLASSES[cls].name}...`);
     });
     const newRow = h('div', 'lobby-row');
     newRow.append(name, create);

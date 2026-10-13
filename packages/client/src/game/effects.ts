@@ -365,6 +365,40 @@ export class Effects {
           this.particles.burst(16, ev.x, ev.y - 0.5, 0, Math.PI * 2, 2.2, 2, 0.7, 0.07, [1, 1, 0.85], Mat.Spark, rand, { emis: 1, grav: -0.4 });
           this.overlay.float(ev.x, ev.y - 1.9, 'PURIFICADO', '#fff2b0', 11);
           break;
+        case 'lootDrop':
+          if (ev.rarity === 'legendary' || ev.rarity === 'epic') {
+            const c: [number, number, number] = ev.rarity === 'legendary' ? [1, 0.6, 0.15] : [0.78, 0.45, 1];
+            this.particles.burst(ev.rarity === 'legendary' ? 40 : 20, ev.x, ev.y - 0.3, -Math.PI / 2, 1.2, 2.5, 4, 1.2, 0.08, c, Mat.Spark, rand, { emis: 1, grav: -0.3 });
+            this.tLights.push({ x: ev.x, y: ev.y, radius: 5, intensity: 1.2, color: c, born: time, life: 1.6 });
+          }
+          break;
+        case 'pickup':
+          if (ev.id === me) {
+            const legendary = ev.rarity === 'legendary';
+            A.play(legendary ? 'discover' : 'ui');
+            this.overlay.float(ev.x, ev.y - 0.6, ev.name, { common: '#cfcfc8', uncommon: '#73e666', rare: '#669eff', epic: '#c773ff', legendary: '#ff9926' }[ev.rarity] ?? '#ddd', legendary ? 14 : 11, 1.6);
+            if (legendary) this.hud.toast(`LENDÁRIO: ${ev.name}`);
+            this.hud.message(`Pegou: ${ev.name} (I abre o inventário)`, legendary ? 'good' : 'info');
+          }
+          break;
+        case 'bagFull':
+          if (ev.id === me) this.hud.toast('Mochila cheia — largue algo (I, botão direito)');
+          break;
+        case 'chest':
+          A.play('essence', ev.x, ev.y);
+          this.particles.burst(18 + ev.tier * 14, ev.x, ev.y - 0.4, -Math.PI / 2, 1.6, 2, 3, 1, 0.07, ev.tier === 2 ? [1, 0.8, 0.3] : [0.9, 0.85, 0.7], Mat.Spark, rand, { emis: 1, grav: 0.6 });
+          if (ev.id === me) this.hud.message(['Baú de madeira aberto', 'Baú de ferro aberto', 'Baú dourado aberto!'][ev.tier] ?? 'Baú aberto', 'good');
+          break;
+        case 'equip':
+          if (ev.id === me) this.hud.message(`Equipado: ${ev.name}`, 'info');
+          break;
+        case 'imbue': {
+          const c: Record<string, [number, number, number]> = { fire: [1, 0.45, 0.1], frost: [0.5, 0.8, 1], shadow: [0.6, 0.3, 1], holy: [1, 0.9, 0.5], poison: [0.45, 1, 0.3], lightning: [0.7, 0.85, 1] };
+          A.play('levelUp');
+          this.particles.burst(40, ev.x, ev.y - 0.6, -Math.PI / 2, Math.PI * 2, 2, 3, 1.2, 0.08, c[ev.element] ?? [1, 1, 1], Mat.Magic, rand, { emis: 1, grav: -0.4 });
+          if (ev.id === me) this.hud.message('Arma imbuída! Seus golpes agora carregam o elemento.', 'good');
+          break;
+        }
         case 'portal':
           A.play('portal', ev.x, ev.y);
           this.particles.burst(30, ev.fromX, ev.fromY - 0.5, 0, Math.PI * 2, 2.5, 3, 0.9, 0.08, [0.6, 0.45, 1], Mat.Magic, rand, { emis: 1, grav: -0.6 });

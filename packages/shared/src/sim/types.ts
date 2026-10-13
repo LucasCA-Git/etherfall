@@ -1,3 +1,5 @@
+import type { Item, ItemSlot } from '../data/items';
+import type { TalentStat } from '../data/talents';
 import type { Vec2 } from '../math/vec2';
 
 /** Authoritative simulation rate. Rendering interpolates between ticks. */
@@ -37,6 +39,7 @@ export interface InputCommand {
 
 export type EntityKind = 'player' | 'enemy' | 'projectile';
 /** Ability slots the player can (re)assign: Q, E, 1–4 and R. */
+export type Gender = 'm' | 'f';
 export type AbilitySlot = 'q' | 'e' | 'a1' | 'a2' | 'a3' | 'a4' | 'r';
 export const ABILITY_SLOTS: readonly AbilitySlot[] = ['q', 'e', 'a1', 'a2', 'a3', 'a4', 'r'];
 
@@ -133,6 +136,14 @@ export interface Entity {
   name: string;
   team: number;
   classId?: ClassId;
+  /** Hero body (players): 'm' herói, 'f' heroína. */
+  gender?: Gender;
+  /** Players: bag (max BAG_SIZE), equipped items and their cached summed bonuses. */
+  inventory?: Item[];
+  equipment?: Partial<Record<ItemSlot, Item>>;
+  gear?: Partial<Record<TalentStat, number>>;
+  /** Players: chests (prop ids) this character already opened. */
+  openedChests?: number[];
   enemyId?: string;
   /** Summoned allies: the caster that owns them (XP for their kills goes to the owner). */
   ownerId?: number;
@@ -230,4 +241,21 @@ export type SimEvent =
   | { type: 'seal'; id: number; target: number; x: number; y: number }
   | { type: 'heal'; source: number; target: number; amount: number; x: number; y: number }
   | { type: 'cleanse'; source: number; target: number; x: number; y: number }
-  | { type: 'portal'; id: number; portal: string; name: string; fromX: number; fromY: number; x: number; y: number };
+  | { type: 'portal'; id: number; portal: string; name: string; fromX: number; fromY: number; x: number; y: number }
+  | { type: 'lootDrop'; id: number; x: number; y: number; rarity: string }
+  | { type: 'pickup'; id: number; name: string; rarity: string; x: number; y: number }
+  | { type: 'bagFull'; id: number }
+  | { type: 'chest'; id: number; prop: number; tier: number; x: number; y: number }
+  | { type: 'equip'; id: number; slot: string; name: string }
+  | { type: 'imbue'; id: number; element: string; x: number; y: number };
+
+/** An item lying on the ground: only its owner may take it until `freeAt`, it vanishes at `until`. */
+export interface GroundLoot {
+  id: number;
+  item: Item;
+  x: number;
+  y: number;
+  owner: number;
+  freeAt: number;
+  until: number;
+}

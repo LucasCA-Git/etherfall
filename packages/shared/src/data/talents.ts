@@ -13,7 +13,9 @@ import { CLASSES } from './classes';
  */
 export type TalentStat =
   | 'dmg' | 'dmgPhysical' | 'dmgArcane' | 'maxHp' | 'maxStamina' | 'maxMana' | 'manaRegen' | 'staminaRegen'
-  | 'cooldown' | 'healPower' | 'blockAbsorb' | 'poise' | 'critChance' | 'lifesteal' | 'berserk' | 'slowPower' | 'dotPower' | 'moveSpeed';
+  | 'cooldown' | 'healPower' | 'blockAbsorb' | 'poise' | 'critChance' | 'lifesteal' | 'berserk' | 'slowPower' | 'dotPower' | 'moveSpeed'
+  /** Damage taken reduction (items; capped at 60%). */
+  | 'armor';
 
 export type TalentEffects = Partial<Record<TalentStat, number>>;
 
@@ -76,6 +78,7 @@ const STAT_TEXT: Record<TalentStat, (v: number) => string> = {
   slowPower: (v) => `lentidão ${sgn(v)}${pct(v)} mais forte`,
   dotPower: (v) => `venenos, queimaduras e maldições ${sgn(v)}${pct(v)} mais fortes`,
   moveSpeed: (v) => `${sgn(v)}${pct(v)} de velocidade`,
+  armor: (v) => `${sgn(v)}${pct(v)} de armadura`,
 };
 const sgn = (v: number) => (v >= 0 ? '+' : '-');
 const pct = (v: number) => `${Math.round(Math.abs(v) * 100)}%`;
@@ -85,7 +88,7 @@ export function describeEffects(e: TalentEffects): string {
 const MINOR_NAME: Record<TalentStat, string> = {
   dmg: 'Força', dmgPhysical: 'Golpe', dmgArcane: 'Poder Mágico', maxHp: 'Vitalidade', maxStamina: 'Fôlego', maxMana: 'Mente',
   manaRegen: 'Fluxo', staminaRegen: 'Recuperação', cooldown: 'Agilidade', healPower: 'Bênção', blockAbsorb: 'Guarda', poise: 'Equilíbrio',
-  critChance: 'Precisão', lifesteal: 'Sede', berserk: 'Fúria', slowPower: 'Gelo', dotPower: 'Toxina', moveSpeed: 'Passos',
+  critChance: 'Precisão', lifesteal: 'Sede', berserk: 'Fúria', slowPower: 'Gelo', dotPower: 'Toxina', moveSpeed: 'Passos', armor: 'Couraça',
 };
 
 // ------------------------------------------------------------------ arm specs
@@ -476,7 +479,7 @@ export const talentPointsFree = (e: Entity): number => talentPointsTotal(e) - ta
 /** Total additive bonus of one stat from allocated nodes and (tests/admin) overrides. */
 export function talentBonus(e: Entity, stat: TalentStat): number {
   if (e.kind !== 'player') return 0;
-  let v = e.talentOverride?.[stat] ?? 0;
+  let v = (e.talentOverride?.[stat] ?? 0) + (e.gear?.[stat] ?? 0);
   for (const id in e.talents) {
     if (!(e.talents[id]! > 0)) continue;
     const t = NODE_INDEX.get(id);

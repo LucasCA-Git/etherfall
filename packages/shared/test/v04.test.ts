@@ -178,7 +178,7 @@ describe('healer (Curandeira)', () => {
 describe('giant spider', () => {
   it('has telegraphed melee and a web that slows', () => {
     const d = ENEMIES.giantspider!;
-    expect(d.name).toBe('Aranha Gigante');
+    expect(d.name).toBe('Formiga-Leão Gigante');
     expect(getAction('spider_leap').telegraph).toBe('danger');
     expect(getAction('spider_bite').telegraph).toBe('normal');
     expect(getAction('spider_web').projectile?.hit.status?.id).toBe('slow');

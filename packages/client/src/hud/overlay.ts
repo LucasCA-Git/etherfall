@@ -18,8 +18,14 @@ interface Floater {
 export type FloatKind = 'text' | 'dmg' | 'crit' | 'heal' | 'miss' | 'dot';
 
 /** 2D canvas over the ASCII view: names, enemy health, floating combat text, prompts. */
+const RARITY_CSS: Record<string, string> = { common: '#b8b8b2', uncommon: '#73e666', rare: '#669eff', epic: '#c773ff', legendary: '#ff9926' };
+
 export class Overlay {
   private ctx: CanvasRenderingContext2D;
+  /** Items on the ground near the viewer (set every frame by the game). */
+  groundLoot: Array<{ x: number; y: number; rarity: string; name: string; glyph: string; mine: boolean }> = [];
+  /** Viewer position, to label only nearby loot. */
+  viewer: { x: number; y: number } | null = null;
   private floaters: Floater[] = [];
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -62,6 +68,37 @@ export class Overlay {
     g.clearRect(0, 0, W, H);
     g.textAlign = 'center';
     g.textBaseline = 'bottom';
+    g.font = '600 11px "DejaVu Sans Mono", Menlo, monospace';
+
+    // ground loot: a bright glyph in the rarity colour; epic and legendary items cast a light beam
+    const t0 = performance.now() / 1000;
+    for (const l of this.groundLoot) {
+      const p = toScreen(l.x, l.y);
+      const col = RARITY_CSS[l.rarity] ?? '#ddd';
+      if (l.rarity === 'epic' || l.rarity === 'legendary') {
+        const hgt = ppm * (l.rarity === 'legendary' ? 2.6 : 1.7);
+        const grad = g.createLinearGradient(p.x, p.y, p.x, p.y - hgt);
+        grad.addColorStop(0, col);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.globalAlpha = 0.55 + 0.25 * Math.sin(t0 * 3 + l.x);
+        g.fillStyle = grad;
+        g.fillRect(p.x - 1.5, p.y - hgt, 3, hgt);
+        g.globalAlpha = 1;
+      }
+      g.font = '700 15px "DejaVu Sans Mono", Menlo, monospace';
+      g.fillStyle = 'rgba(0,0,0,0.85)';
+      g.fillText(l.glyph, p.x + 1, p.y + 5);
+      g.fillStyle = col;
+      g.fillText(l.glyph, p.x, p.y + 4);
+      const near = this.viewer && Math.hypot(this.viewer.x - l.x, this.viewer.y - l.y) < 5;
+      if (near || l.rarity === 'legendary' || l.rarity === 'epic') {
+        g.font = '600 10px "DejaVu Sans Mono", Menlo, monospace';
+        g.fillStyle = 'rgba(0,0,0,0.75)';
+        g.fillText(l.name, p.x + 1, p.y - 11);
+        g.fillStyle = col;
+        g.fillText(l.name, p.x, p.y - 12);
+      }
+    }
     g.font = '600 11px "DejaVu Sans Mono", Menlo, monospace';
 
     for (const e of entities) {

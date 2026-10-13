@@ -1,7 +1,8 @@
 import { CLASSES } from '../data/classes';
 import { ATTR_MAX, ATTR_POINTS_PER_LEVEL, MAX_LEVEL } from '../data/curves';
 import { cleanLoadout, dominantArchetype, pruneTalents } from '../data/talents';
-import type { AbilitySlot, AttrKey, Attributes, ClassId, Entity } from '../sim/types';
+import type { AbilitySlot, AttrKey, Attributes, ClassId, Entity, Gender } from '../sim/types';
+import { BAG_SIZE, ITEM_SLOTS, itemSlot, sanitizeItem, type Item, type ItemSlot } from '../data/items';
 
 /**
  * Persistent character record (server accounts and offline browser saves share it).
@@ -12,6 +13,8 @@ export interface CharacterSave {
   id: string;
   name: string;
   classId: ClassId;
+  /** Hero body (optional in older saves: 'm'). */
+  gender?: Gender;
   level: number;
   xp: number;
   unspent: number;
@@ -21,6 +24,11 @@ export interface CharacterSave {
   loadout?: Partial<Record<AbilitySlot, string>>;
   /** Title from the dominant skill-tree path (derived). */
   subclass: string | null;
+  /** Bag and equipped items (optional in older saves). */
+  inventory?: Item[];
+  equipment?: Partial<Record<ItemSlot, Item>>;
+  /** Chest prop ids already opened by this character. */
+  openedChests?: number[];
   discovered: string[];
   essenceMark: { x: number; y: number; amount: number } | null;
   /** Last bonfire rested at. */
@@ -36,6 +44,7 @@ export interface CharacterSummary {
   id: string;
   name: string;
   classId: ClassId;
+  gender?: Gender;
   level: number;
   subclass: string | null;
   updatedAt: number;
@@ -52,15 +61,17 @@ export function cleanName(raw: unknown): string {
 
 export const isClassId = (v: unknown): v is ClassId => typeof v === 'string' && Object.prototype.hasOwnProperty.call(CLASSES, v);
 
-export function newCharacter(id: string, name: string, classId: ClassId, now: number): CharacterSave {
+export const isGender = (v: unknown): v is Gender => v === 'm' || v === 'f';
+
+export function newCharacter(id: string, name: string, classId: ClassId, now: number, gender: Gender = 'm'): CharacterSave {
   return {
-    v: 1, id, name, classId, level: 1, xp: 0, unspent: 0, attrs: { ...CLASSES[classId].baseAttributes },
+    v: 1, id, name, classId, gender, level: 1, xp: 0, unspent: 0, attrs: { ...CLASSES[classId].baseAttributes },
     talents: {}, loadout: {}, subclass: null, discovered: [], essenceMark: null, respawn: null, pos: null, createdAt: now, updatedAt: now,
   };
 }
 
 export function summarize(c: CharacterSave): CharacterSummary {
-  return { id: c.id, name: c.name, classId: c.classId, level: c.level, subclass: c.subclass, updatedAt: c.updatedAt };
+  return { id: c.id, name: c.name, classId: c.classId, gender: c.gender ?? 'm', level: c.level, subclass: c.subclass, updatedAt: c.updatedAt };
 }
 
 /** Snapshot of a live player into its save record. */
@@ -75,6 +86,9 @@ export function exportCharacter(e: Entity, prev: CharacterSave, now: number): Ch
     loadout: { ...e.loadout },
     subclass: e.subclass,
     discovered: [...e.discovered],
+    inventory: (e.inventory ?? []).map(cloneItem),
+    equipment: Object.fromEntries(Object.entries(e.equipment ?? {}).filter(([, it]) => it).map(([k, it]) => [k, cloneItem(it!)])),
+    openedChests: [...(e.openedChests ?? [])],
     essenceMark: e.essenceMark ? { ...e.essenceMark } : null,
     respawn: { x: e.respawnPoint.x, y: e.respawnPoint.y },
     pos: { x: e.pos.x, y: e.pos.y },
@@ -83,6 +97,27 @@ export function exportCharacter(e: Entity, prev: CharacterSave, now: number): Ch
 }
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const cloneItem = (it: Item): Item => ({ ...it, affixes: it.affixes.map((a) => ({ ...a })), imbue: it.imbue ? { ...it.imbue } : null });
+
+/** Items in a save are rebuilt through `sanitizeItem` (unknown or impossible items are dropped). */
+function validateItems(r: Record<string, unknown>): Pick<CharacterSave, 'inventory' | 'equipment' | 'openedChests'> {
+  const seen = new Set<string>();
+  const ok = (raw: unknown): Item | null => {
+    const it = sanitizeItem(raw);
+    if (!it || seen.has(it.uid)) return null;
+    seen.add(it.uid);
+    return it;
+  };
+  const equipment: Partial<Record<ItemSlot, Item>> = {};
+  const eq = (typeof r.equipment === 'object' && r.equipment) || {};
+  for (const slot of ITEM_SLOTS) {
+    const it = ok((eq as Record<string, unknown>)[slot]);
+    if (it && itemSlot(it) === slot) equipment[slot] = it;
+  }
+  const inventory = (Array.isArray(r.inventory) ? r.inventory : []).map(ok).filter((x): x is Item => !!x).slice(0, BAG_SIZE);
+  const openedChests = (Array.isArray(r.openedChests) ? r.openedChests : []).filter((v): v is number => Number.isInteger(v) && v >= 0).slice(0, 4096);
+  return { inventory, equipment, openedChests };
+}
 const point = (v: unknown): { x: number; y: number } | null => {
   const r = v as { x?: unknown; y?: unknown } | null;
   return r && finite(r.x) && finite(r.y) ? { x: r.x, y: r.y } : null;
@@ -132,6 +167,7 @@ export function validateSave(raw: unknown): CharacterSave | null {
     id: r.id.slice(0, 64),
     name,
     classId,
+    gender: isGender(r.gender) ? r.gender : 'm',
     level,
     xp: finite(r.xp) ? Math.max(0, Math.floor(r.xp)) : 0,
     unspent,
@@ -140,6 +176,7 @@ export function validateSave(raw: unknown): CharacterSave | null {
     loadout,
     subclass,
     discovered,
+    ...validateItems(r),
     essenceMark,
     respawn: point(r.respawn),
     pos: point(r.pos),

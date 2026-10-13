@@ -1,4 +1,4 @@
-import type { ClassId } from '../sim/types';
+import type { ClassId, Gender } from '../sim/types';
 import type { CharacterSummary } from './save';
 
 /**
@@ -9,7 +9,7 @@ export type LobbyClientMsg =
   | { t: 'register'; user: string; pass: string }
   | { t: 'login'; user: string; pass: string }
   | { t: 'chars' }
-  | { t: 'createChar'; name: string; classId: ClassId }
+  | { t: 'createChar'; name: string; classId: ClassId; gender?: Gender }
   | { t: 'deleteChar'; id: string }
   /**
    * Enter the world with a character. `room` = code of a private room to join; `create` opens a

@@ -412,6 +412,17 @@ export function buildWorld3D(world: WorldData): World3D {
         B.add('wall', box, stoneMat, ch, { x: cx, y: 0.12, z: cz, sx: 0.8, sy: 0.24, sz: 0.8, ry: 0, c });
         break;
       }
+      case 'chest': {
+        // tiers: 0 wood, 1 iron-bound, 2 gilded; facing the camera so the lid reads
+        const tier = Math.round(p.size);
+        const wood = tier === 2 ? new THREE.Color(0.55, 0.38, 0.08) : new THREE.Color(0.2, 0.11, 0.05);
+        const band = tier === 0 ? new THREE.Color(0.12, 0.08, 0.04) : tier === 1 ? new THREE.Color(0.3, 0.3, 0.32) : new THREE.Color(0.95, 0.72, 0.2);
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 0.24, z: cz, sx: 0.9, sy: 0.48, sz: 0.55, ry: 0, c: wood });
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 0.55, z: cz, sx: 0.92, sy: 0.16, sz: 0.57, ry: 0, c: wood });
+        for (const ox of [-0.3, 0.3]) B.add('wall', box, stoneMat, ch, { x: cx + ox, y: 0.33, z: cz, sx: 0.08, sy: 0.66, sz: 0.6, ry: 0, c: band }, false);
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 0.42, z: cz + 0.29, sx: 0.12, sy: 0.14, sz: 0.04, ry: 0, c: band }, false);
+        break;
+      }
       case 'torch': {
         B.add('pole', cyl8, ironMat, ch, { x: cx, y: 0.7, z: cz, sx: 0.045, sy: 1.4, sz: 0.045, ry: 0 }, false);
         B.add('bowl', cylTaper, ironMat, ch, { x: cx, y: 1.43, z: cz, sx: 0.13, sy: 0.12, sz: 0.13, ry: 0 }, false);

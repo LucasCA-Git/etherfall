@@ -1,4 +1,4 @@
-import { CLASSES, CLASS_ORDER, DEFAULT_WORLD_SEED, cleanName, generateWorld, newCharacter, type CharacterSave, type ClassId } from '@etherfall/shared';
+import { CLASSES, CLASS_ORDER, DEFAULT_WORLD_SEED, cleanName, generateWorld, newCharacter, type CharacterSave, type ClassId, type Gender } from '@etherfall/shared';
 import { AudioEngine } from './audio/audio';
 import { Game } from './game/game';
 import { OnlineLobby } from './hud/lobby';
@@ -53,6 +53,25 @@ function boot(): void {
     cards.push(el);
   }
   select(chosen);
+  // hero body: herói / heroína (Flare avatars), kept with the character save
+  let gender: Gender = params.get('gender') === 'f' ? 'f' : 'm';
+  const genderRow = document.createElement('div');
+  genderRow.className = 'genders';
+  const gBtns = (['m', 'f'] as const).map((g) => {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.dataset.gender = g;
+    b.textContent = g === 'm' ? 'Herói' : 'Heroína';
+    b.addEventListener('click', () => pickGender(g));
+    genderRow.append(b);
+    return b;
+  });
+  const pickGender = (g: Gender) => {
+    gender = g;
+    for (const b of gBtns) b.classList.toggle('primary', b.dataset.gender === g);
+  };
+  pickGender(gender);
+  list.after(genderRow);
   const nameInput = document.getElementById('name') as HTMLInputElement;
   let storedName = '';
   try {
@@ -98,7 +117,7 @@ function boot(): void {
     } catch {
       /* ignore */
     }
-    const save = findOffline(name, chosen) ?? newCharacter(`off-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, name, chosen, Date.now());
+    const save = findOffline(name, chosen) ?? newCharacter(`off-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, name, chosen, Date.now(), gender);
     const game = launch({ classId: chosen, name, save });
     if (!game) return;
     if (save.level > 1) game.hud.message(`${save.name} continua no nível ${save.level}. Progresso salvo neste navegador.`, 'good');
@@ -161,6 +180,7 @@ function boot(): void {
     if (online && !lobby) {
       lobby = new OnlineLobby(saves.parentElement!, {
         selectedClass: () => chosen,
+        selectedGender: () => gender,
         onPlay: (conn, playerId, seed, ch, roomCode) => {
           const transport = new WebSocketTransport(conn, generateWorld(seed), playerId);
           const game = launch({ classId: ch.classId, name: ch.name, transport });

@@ -1,3 +1,4 @@
+import { ITEM_SLOTS } from '../data/items';
 import { CLASSES } from '../data/classes';
 import type { ClassId, InputCommand, SimEvent } from '../sim/types';
 import { TICK_RATE } from '../sim/types';
@@ -102,7 +103,7 @@ export class Room {
         const classId: ClassId = Object.prototype.hasOwnProperty.call(CLASSES, msg.classId) ? msg.classId : 'vanguard';
         const rawName = typeof msg.name === 'string' ? msg.name : '';
         const name = rawName.replace(/[^\p{L}\p{N}_ -]/gu, '').trim().slice(0, MAX_NAME) || 'Errante';
-        const p = this.sim.addPlayer(name, classId);
+        const p = this.sim.addPlayer(name, classId, undefined, msg.gender === 'f' ? 'f' : 'm');
         this.sessions.set(sessionId, { id: sessionId, playerId: p.id, lastSeq: -1, appliedSeq: -1, queue: [], last: null, lastInputTick: this.sim.tick });
         return [{ t: 'welcome', playerId: p.id, tick: this.sim.tick, seed: this.sim.world.seed, tickRate: TICK_RATE, version: PROTOCOL_VERSION }];
       }
@@ -140,6 +141,20 @@ export class Room {
         return typeof msg.slot === 'string' && action !== undefined && this.sim.equipSkill(s.playerId, msg.slot, action)
           ? []
           : [{ t: 'error', code: 'equip', message: 'Essa habilidade ainda não foi desbloqueada' }];
+      }
+      case 'item': {
+        const s = this.sessions.get(sessionId);
+        if (!s) return [{ t: 'error', code: 'join', message: 'Join first' }];
+        const sim = this.sim;
+        const ok =
+          msg.op === 'unequip' ? ITEM_SLOTS.includes(msg.slot) && sim.unequipItem(s.playerId, msg.slot)
+          : typeof msg.uid !== 'string' ? false
+          : msg.op === 'equip' ? sim.equipItem(s.playerId, msg.uid)
+          : msg.op === 'drop' ? sim.dropItem(s.playerId, msg.uid)
+          : msg.op === 'imbue' ? sim.imbueWeapon(s.playerId, msg.uid)
+          : false;
+        const why = msg.op === 'imbue' ? 'Sente-se numa fogueira com uma arma equipada para imbuir' : msg.op === 'equip' ? 'Você não pode usar este item' : 'Não foi possível';
+        return ok ? [] : [{ t: 'error', code: 'item', message: why }];
       }
       case 'respec': {
         const s = this.sessions.get(sessionId);
