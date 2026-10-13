@@ -24,7 +24,7 @@ SEGS = ['stance', 'run', 'swing', 'cast', 'shoot', 'block', 'hit', 'die', 'spawn
 # Flare direction index -> map-direction name (used by the layer order) and -> facing on screen.
 # Rows in the output follow ETHERFALL: 0 W, 1 NW, 2 N, 3 NE, 4 E, 5 SE, 6 S, 7 SW.
 FLARE_DIR_NAMES = ['SW', 'W', 'NW', 'N', 'NE', 'E', 'SE', 'S']
-SCREEN_DIR = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+SCREEN_DIR = ['NW', 'N', 'NE', 'E', 'SE', 'S', 'SW', 'W']  # verified on the run cycles
 SHEET_W = 2048
 ROW_OF = {'W': 0, 'NW': 1, 'N': 2, 'NE': 3, 'E': 4, 'SE': 5, 'S': 6, 'SW': 7}
 LAYER_ORDER = {

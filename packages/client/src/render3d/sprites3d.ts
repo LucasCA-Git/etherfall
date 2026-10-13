@@ -74,8 +74,11 @@ function sheetReady(name: string): boolean {
   return false;
 }
 
-// heroes start decoding right away (they are on screen from the first frame)
-if (typeof document !== 'undefined' && SPRITES_ON) for (const k of Object.keys(URLS)) if (k.startsWith('hero_')) sheetReady(k);
+// every sheet starts decoding right away (heroes first): creatures must not pop in as 3D rigs
+if (typeof document !== 'undefined' && SPRITES_ON) {
+  const keys = Object.keys(URLS).sort((a, b) => Number(b.startsWith('hero_')) - Number(a.startsWith('hero_')));
+  for (const k of keys) sheetReady(k);
+}
 
 const VS = /* glsl */ `
 uniform vec4 uFrame; // u0, v0, du, dv
@@ -229,7 +232,12 @@ export function poseSprite(r: SpriteRig, p: SpritePoseIn): void {
     if (p.spin && p.stage === 'active') row = (row + Math.floor(p.k * 16)) % 8;
   } else if (anim.speed > 0.6) {
     const [s0, n] = seg('run');
-    frame = s0 + ((Math.floor((anim.phase / (Math.PI * 2)) * n) % n) + n) % n;
+    let step = Math.floor((anim.phase / (Math.PI * 2)) * n);
+    // moving away from where you aim: keep facing the aim and play the stride backwards (backpedal)
+    // instead of turning the body sideways or moonwalking
+    const away = Math.abs(((Math.atan2(e.vy, e.vx) - dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+    if (away > 1.95) step = -step;
+    frame = s0 + ((step % n) + n) % n;
   } else {
     const [s0, n, ms, type] = seg('stance');
     const step = Math.floor((p.time * 1000 * n) / Math.max(1, ms));

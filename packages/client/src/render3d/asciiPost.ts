@@ -172,23 +172,29 @@ float viewDist(ivec2 p, ivec2 lim) {
   return d >= 0.99999 ? -1.0 : uDepthRange.x + d * (uDepthRange.y - uDepthRange.x);
 }
 /**
- * Surface class of a cell from the depth buffer: 1 floor (faces up), 2 wall (vertical), 0 unknown
- * or a depth break (silhouette). The view-space normal of a plane is (dz/dx, dz/dy, 1).
+ * Surface of a cell from the depth buffer: x = class (1 floor facing up, 2 vertical wall, 0 other),
+ * y = 1 on a depth break (silhouette of a wall, tree or prop against what is behind it),
+ * zw = depth gradient on screen (its perpendicular is the outline direction).
+ * The view-space normal of a plane is (dz/dx, dz/dy, 1) for this orthographic camera.
  */
-int surfaceClass(ivec2 base, ivec2 lim) {
+vec4 surface(ivec2 base, ivec2 lim) {
   ivec2 k = max(uSub - 1, ivec2(1));
   float d0 = viewDist(base, lim);
   float dx = viewDist(base + ivec2(k.x, 0), lim);
   float dy = viewDist(base + ivec2(0, k.y), lim);
-  if (d0 < 0.0 || dx < 0.0 || dy < 0.0) return 0;
-  float gx = (dx - d0) / (float(k.x) * uView.z / float(uSub.x));
-  float gy = (dy - d0) / (float(k.y) * uView.w / float(uSub.y));
-  if (abs(gx) > 6.0 || abs(gy) > 6.0) return 0;
+  float dd = viewDist(base + k, lim);
+  float sky = float(d0 < 0.0) + float(dx < 0.0) + float(dy < 0.0) + float(dd < 0.0);
+  if (sky > 0.0) return vec4(0.0, sky < 4.0 ? 1.0 : 0.0, float(dx < 0.0) - float(d0 < 0.0), float(dy < 0.0) - float(d0 < 0.0));
+  float sx = float(k.x) * uView.z / float(uSub.x);
+  float sy = float(k.y) * uView.w / float(uSub.y);
+  float gx = (dx - d0) / sx;
+  float gy = (dy - d0) / sy;
+  // a jump far steeper than any surface seen at this pitch = an object's edge
+  float jump = max(abs(dd - dx - dy + d0) / max(sx, sy), max(abs(gx), abs(gy) - 1.6));
+  if (jump > 5.0) return vec4(0.0, 1.0, gx, gy);
   vec3 n = normalize(vec3(gx, gy, 1.0));
   float up = dot(n, vec3(0.0, cos(uPitch), sin(uPitch)));
-  if (up > 0.82) return 1;
-  if (up < 0.4) return 2;
-  return 0;
+  return vec4(up > 0.82 ? 1.0 : up < 0.4 ? 2.0 : 0.0, 0.0, gx, gy);
 }
 vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
 vec3 toSrgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
@@ -292,28 +298,40 @@ void main() {
     float det = sqrt((jxx - jyy) * (jxx - jyy) + 4.0 * jxy * jxy);
     float coherence = tr > 1e-6 ? det / tr : 0.0;
     float strength = sqrt(tr / n);
-    // high-contrast ramp: shadows fall to empty space, lit stone / firelight climb to '#' '@'
-    float x = clamp((lum - 0.03) * 1.9 * uDensity, 0.0, 1.0);
-    float density = pow(x, 0.75 + 0.45 * (uContrast - 1.0));
-    density = mix(density, smoothstep(0.0, 1.0, density), clamp(uContrast - 1.0, 0.0, 1.0));
-    if (n > 3.0 && strength > (0.045 + lum * 0.25) * (1.6 - uEdges) && coherence > 0.74 && peak > 0.06) {
-      float ga = 0.5 * atan(2.0 * jxy, jxx - jyy);
-      glyph = strokeGlyph(ga + PI * 0.5);
+    // tone curve: shadows fall to empty space, highlights (fire, moonlit stone) climb to '#' '@'
+    float x = clamp((lum - 0.02) * 2.0 * uDensity, 0.0, 1.0);
+    float density = pow(x, 0.8 + 0.4 * (uContrast - 1.0));
+    vec4 sf = uEdges > 0.05 ? surface(base, lim) : vec4(0.0);
+    int sc = int(sf.x + 0.5);
+    float edgeBoost = 1.0;
+    // world-locked patches (~1.5 m) share one hatching direction, like grain in the reference
+    float tilePick = hash12(floor(world / 1.5));
+    if (sf.y > 0.5 && peak > 0.025) {
+      // depth break: a crisp outline stroke along the edge of walls, trees and props
+      glyph = strokeGlyph(atan(sf.w, sf.z) + PI * 0.5);
+      edgeBoost = 1.0 + 0.6 * uEdges;
+    } else if (n > 3.0 && strength > (0.045 + lum * 0.25) * (1.6 - uEdges) && coherence > 0.74 && peak > 0.06) {
+      // shading edge inside a surface (shadow line, mortar seam)
+      glyph = strokeGlyph(0.5 * atan(2.0 * jxy, jxx - jyy) + PI * 0.5);
+    } else if (density < 0.07) {
+      // near-dark: sparse dots keep the ground readable without noise
+      glyph = density > 0.025 && rnd < 0.4 ? 1.0 : 0.0;
+    } else if (sc == 1) {
+      // floors: brightness lives in the colour; the glyphs stay strokes. Slanted strokes in
+      // world-locked patches, a dash or dot between them, '=' '+' only on the brightest spots.
+      float ang = tilePick < 0.42 ? PI * 0.25 : tilePick < 0.84 ? PI * 0.75 : 0.0;
+      if (rnd < min(0.88, 0.3 + density * 0.8)) glyph = strokeGlyph(ang + (rnd - 0.5) * 0.35);
+      else glyph = float(${FLOOR_BASE}) + clamp(floor(density * 6.0 + 0.5), 1.0, 7.0);
+    } else if (sc == 2) {
+      // walls and trunks: vertical strokes, brackets and bars; '#' 'H' only in strong light
+      float wi = density > 0.85 ? mix(8.0, float(${SUB_RAMP - 1}), (density - 0.85) / 0.15) : mix(2.0, 7.0, density);
+      glyph = rnd < 0.62 ? strokeGlyph(PI * 0.5) : float(${WALL_BASE}) + clamp(floor(wi + 0.5), 1.0, float(${SUB_RAMP - 1}));
     } else {
-      float jitter = (rnd - 0.5) * 3.0 * uDither;
-      int sc = uEdges > 0.05 ? surfaceClass(base, lim) : 0;
-      if (sc == 1) {
-        // floors: flat glyphs . , - _ ~ =
-        glyph = float(${FLOOR_BASE}) + clamp(floor(density * float(${SUB_RAMP - 1}) + 0.5 + jitter * 0.5), 0.0, float(${SUB_RAMP - 1}));
-      } else if (sc == 2) {
-        // walls and trunks: vertical glyphs | ! [ ] I H
-        glyph = float(${WALL_BASE}) + clamp(floor(density * float(${SUB_RAMP - 1}) + 0.5 + jitter * 0.5), 0.0, float(${SUB_RAMP - 1}));
-      } else {
-        glyph = clamp(floor(density * (uRampLen - 1.0) + 0.5 + jitter), 0.0, uRampLen - 1.0);
-      }
-      if (density < 0.04) glyph = 0.0;
+      // everything else (props, foliage, water): the density ramp, capped below the heaviest glyphs
+      float jitter = (rnd - 0.5) * 2.0 * uDither;
+      glyph = clamp(floor(min(density, 0.85) * (uRampLen - 1.0) + 0.5 + jitter), 1.0, uRampLen - 1.0);
     }
-    fg = tint(avg, lum, 0.8, (0.16 + peak * 1.7) * (0.8 + 0.2 * uContrast));
+    fg = tint(avg, lum, 0.8, (0.16 + peak * 1.7) * (0.8 + 0.2 * uContrast) * edgeBoost);
   }
 
   // rain: world-locked falling streaks (sized in meters, so they look the same at any cell size)
@@ -437,7 +455,7 @@ void main() {
     fg = f / max(max(f.r, max(f.g, f.b)), 1e-3) * clamp(0.12 + peak * 1.2, 0.0, 1.0);
   } else {
     // inside: glyph ink follows the real shading, dark cloth stays dark
-    float d = clamp(0.14 + al * 1.6, 0.0, 1.0);
+    float d = clamp(0.22 + al * 1.7, 0.0, 1.0);
     glyph = clamp(floor(d * (uRampLen - 1.0) + (rnd - 0.5) * 3.0 + 0.5), 1.0, uRampLen - 1.0);
     vec3 f = mix(vec3(al), ac, 0.9);
     fg = f / max(max(f.r, max(f.g, f.b)), 1e-3) * clamp(0.18 + peak * 1.9, 0.0, 1.0);

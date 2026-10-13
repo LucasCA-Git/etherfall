@@ -2,6 +2,16 @@
 
 _Última atualização: 12/10/2026 · Entregas 10 e 11 (0.10 + 0.11)_
 
+## 0.11.1 — ASCII equilibrado
+- Células de 8 px por padrão (meio-termo: detalhe nos personagens e estética de terminal; saves migram).
+- Contornos pelo **depth buffer**: toda borda de parede, árvore e objeto vira um traço na direção da borda.
+- Meios-tons viram **hachuras**: chão com `/` `\` `-` em manchas alinhadas ao mundo, paredes com `|` `!` `[ ]`;
+  `#` `@` só em luz forte. O brilho vai na cor, não em letras cada vez mais pesadas (acabaram os blocos de `o`/`+`).
+- Personagens: grade fina a partir de 12 px; abaixo disso contorno + interior mais claro.
+- Direções dos sprites do Flare corrigidas (estavam 45° deslocadas; conferido no ciclo de corrida) e todas as folhas
+  regeneradas; andando contra a mira o herói recua de frente (passo invertido) em vez de virar de lado.
+- Todas as folhas começam a carregar na abertura (criaturas não aparecem mais como modelo 3D por um instante).
+
 ## Novidades da 0.11 — itens, lendários, baús e imbuimento
 - **Inventário (I):** 9 espaços de equipamento (arma, mão secundária, cabeça, peito, mãos, pernas, pés, anel, amuleto) e
   mochila de 24. Clique equipa, clique no equipamento desequipa, botão direito/Shift+clique larga no chão. Dica com

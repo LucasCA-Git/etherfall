@@ -346,7 +346,7 @@ export class ActorLayer {
     let cellH = Math.max(1, Math.round((CELL_Q || f.cellSize) * dpr));
     let cellW = Math.max(1, Math.round(cellH * 0.6));
     // characters get a grid twice as fine only when its glyphs stay legible letters (>= 8 px tall)
-    const fineK = cellH >= 16 ? 2 : 1;
+    const fineK = cellH >= 12 ? 2 : 1;
     if (fineK === 2) {
       cellH = Math.round(cellH / 2) * 2;
       cellW = Math.max(4, Math.round(cellW / 2) * 2);

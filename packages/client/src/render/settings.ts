@@ -29,7 +29,7 @@ export type PresetId = 'color' | 'mono' | 'highContrast' | 'cinematic' | 'perfor
 export const PRESETS: Record<PresetId, { label: string; s: RenderSettings }> = {
   color: {
     label: 'ASCII colorido',
-    s: { cellSize: 10, internalRes: 2, density: 1, palette: 0, contrast: 1.25, edgeIntensity: 0.5, glow: 1, renderDistance: 34, grain: 0.04, lodDistance: 26, dither: 0.35, animSpeed: 1, bgLevel: 0.14, vignette: 0.35, particleLimit: 1500 },
+    s: { cellSize: 8, internalRes: 2, density: 1, palette: 0, contrast: 1.2, edgeIntensity: 0.5, glow: 1, renderDistance: 34, grain: 0.04, lodDistance: 26, dither: 0.35, animSpeed: 1, bgLevel: 0.14, vignette: 0.35, particleLimit: 1500 },
   },
   mono: {
     label: 'ASCII monocromático',
@@ -50,7 +50,7 @@ export const PRESETS: Record<PresetId, { label: string; s: RenderSettings }> = {
 };
 
 export const SETTING_RANGES: Record<keyof RenderSettings, { min: number; max: number; step: number; label: string }> = {
-  cellSize: { min: 1, max: 18, step: 1, label: 'Tamanho das células em px (8–12 = letras legíveis; 1 = um ponto por célula)' },
+  cellSize: { min: 1, max: 18, step: 1, label: 'Tamanho das células em px (7–9 = equilíbrio; 12+ = letras grandes; 1 = um ponto)' },
   internalRes: { min: 1, max: 4, step: 1, label: 'Resolução interna' },
   density: { min: 0.5, max: 1.6, step: 0.05, label: 'Densidade de caracteres' },
   palette: { min: 0, max: 2, step: 1, label: 'Paleta (cor / mono / contraste)' },
@@ -74,7 +74,7 @@ export function loadSettings(): RenderSettings {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<RenderSettings> & { v?: number };
       // 0.10: legible glyphs by default — older saves had tiny 5 px cells (dotted noise)
-      if ((parsed.v ?? 1) < 2) {
+      if ((parsed.v ?? 1) < 3) {
         delete parsed.cellSize;
         delete parsed.contrast;
       }
@@ -92,7 +92,7 @@ export function loadSettings(): RenderSettings {
 
 export function saveSettings(s: RenderSettings): void {
   try {
-    localStorage.setItem('etherfall.render', JSON.stringify({ ...s, v: 2 }));
+    localStorage.setItem('etherfall.render', JSON.stringify({ ...s, v: 3 }));
   } catch {
     /* ignore */
   }
