@@ -1,4 +1,4 @@
-import type { EntitySnap, WorldData } from '@etherfall/shared';
+import { zoneAt, type EntitySnap, type WorldData } from '@etherfall/shared';
 import { buildBaseMap } from './map';
 
 const RADIUS_M = 34;
@@ -98,7 +98,8 @@ export class Minimap {
     g.stroke();
     const region = this.world.regions.find((r) => self.x >= r.x0 && self.x < r.x1 && self.y >= r.y0 && self.y < r.y1);
     const poi = this.world.pois.find((p) => Math.hypot(p.x - self.x, p.y - self.y) < p.r);
-    const text = region?.name ?? poi?.name ?? 'Floresta do Crepúsculo';
+    const zone = zoneAt(this.world, self.x, self.y);
+    const text = region?.name ?? poi?.name ?? (zone ? `${zone.name} · Nv ${zone.minLevel}–${zone.maxLevel}` : 'Floresta do Crepúsculo');
     if (this.label.textContent !== text) this.label.textContent = text;
   }
 }

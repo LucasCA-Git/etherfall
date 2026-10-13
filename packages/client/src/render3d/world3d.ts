@@ -1,3 +1,4 @@
+import { FLORA_KINDS, FLORA_ON, buildFlora, type FloraUniforms } from './flora';
 import * as THREE from 'three';
 import { Tile, hash2, type Prop, type WorldData } from '@etherfall/shared';
 
@@ -145,6 +146,13 @@ function tileColor(t: Tile, v: number, out: THREE.Color): THREE.Color {
     case Tile.RuinFloor: return out.setRGB(0.09 * j, 0.09 * j, 0.1 * j);
     case Tile.CastleFloor: return out.setRGB(0.075 * j, 0.078 * j, 0.095 * j);
     case Tile.DungeonFloor: return out.setRGB(0.05 * j, 0.048 * j, 0.056 * j);
+    case Tile.Snow: return out.setRGB(0.2 * j, 0.21 * j, 0.24 * j);
+    case Tile.Ice: return out.setRGB(0.11 * j, 0.15 * j, 0.2 * j);
+    case Tile.Ash: return out.setRGB(0.035 * j, 0.032 * j, 0.032 * j);
+    case Tile.Mud: return out.setRGB(0.032 * j, 0.03 * j, 0.02 * j);
+    case Tile.Cobble: return out.setRGB(0.085 * j, 0.08 * j, 0.075 * j);
+    // lava glows: values above 1 survive the tone mapping as bright embers in the ASCII
+    case Tile.Lava: return out.setRGB(1.6 + v * 0.8, 0.32 + v * 0.2, 0.04);
     default: return out.setRGB(0.03, 0.03, 0.03);
   }
 }
@@ -156,6 +164,8 @@ export interface World3D {
   fire: THREE.MeshStandardMaterial;
   /** Grass blades: wind + the CPU spring field (actors push, blasts kick). */
   grass: GrassUniforms;
+  /** Flare vegetation billboards (null with ?flora=0). */
+  flora: FloraUniforms | null;
   dispose(): void;
 }
 
@@ -217,7 +227,7 @@ export function buildWorld3D(world: WorldData): World3D {
         const t = world.tiles[ty * W + tx] as Tile;
         if (t === Tile.Rock || t === Tile.ShallowWater || t === Tile.DeepWater) continue;
         tileColor(t, hash2(tx, ty, world.seed) * 0.6 + hash2(x, y, world.seed + 3) * 0.4, col);
-        if (t === Tile.CastleFloor || t === Tile.RuinFloor) col.multiplyScalar((tx + ty) % 2 ? 0.92 : 1.08);
+        if (t === Tile.CastleFloor || t === Tile.RuinFloor || t === Tile.Cobble) col.multiplyScalar((tx + ty) % 2 ? 0.92 : 1.08);
         r += col.r;
         g += col.g;
         b += col.b;
@@ -309,14 +319,14 @@ export function buildWorld3D(world: WorldData): World3D {
 
   // cliffs: one block per rock tile, taller deep inside rock masses
   const isRock = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || world.tiles[y * W + x] === Tile.Rock;
-  const dungeon = world.regions.find((r) => r.kind === 'dungeon');
+  const dungeons = world.regions.filter((r) => r.kind === 'dungeon');
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       if (world.tiles[y * W + x] !== Tile.Rock) continue;
       let inner = 0;
       for (let k = 1; k <= 3; k++) if (isRock(x - k, y) && isRock(x + k, y) && isRock(x, y - k) && isRock(x, y + k)) inner = k;
       const v = hash2(x, y, world.seed + 11);
-      const inDungeon = dungeon && x >= dungeon.x0 && x < dungeon.x1 && y >= dungeon.y0 && y < dungeon.y1;
+      const inDungeon = dungeons.some((d) => x >= d.x0 && x < d.x1 && y >= d.y0 && y < d.y1);
       const h = inDungeon ? 2.3 + v * 0.5 : 1.0 + inner * 0.55 + v * 1.6;
       const g = 0.1 + v * 0.06;
       B.add('rock', box, rockMat, chunkOf(x, y), { x: x + 0.5, y: h / 2 - 0.02, z: (y + 0.5) * ZS, sx: 1.02, sy: h, sz: ZS * 1.02, ry: 0, c: new THREE.Color(g, g * 1.02, g * 1.18) });
@@ -328,9 +338,17 @@ export function buildWorld3D(world: WorldData): World3D {
     return new THREE.Color(base[0] * k, base[1] * k * (0.9 + r() * 0.2), base[2] * k);
   };
 
+  /** Canopy colour by the ground under it: frosted on snow, sick and dark in the swamp. */
+  const canopy = (p: Prop, r: () => number, base: [number, number, number]) => {
+    const t = world.tiles[Math.floor(p.y) * W + Math.floor(p.x)];
+    if (t === Tile.Snow) return green(r, [0.36, 0.4, 0.44]);
+    if (t === Tile.Mud) return green(r, [0.09, 0.12, 0.07]);
+    return green(r, base);
+  };
   for (const p of world.props) addProp(p);
 
   function addProp(p: Prop): void {
+    if (FLORA_ON && FLORA_KINDS.has(p.kind)) return; // painted Flare billboards (flora.ts)
     const r = rng(p.v * 0.999 + 0.0005 + (p.id % 97) * 1e-6);
     const cx = p.x;
     const cz = p.y * ZS;
@@ -347,7 +365,7 @@ export function buildWorld3D(world: WorldData): World3D {
           const rr = s * (0.55 + r() * 0.3);
           B.add('leaf', ico1, leafMat, ch, {
             x: cx + Math.cos(a) * d, y: th + rr * 0.55 + r() * s * 0.4, z: cz + Math.sin(a) * d, sx: rr, sy: rr * (0.75 + r() * 0.2), sz: rr, ry: r() * 6,
-            c: green(r, [0.13, 0.2, 0.14]),
+            c: canopy(p, r, [0.13, 0.2, 0.14]),
           });
         }
         break;
@@ -355,7 +373,7 @@ export function buildWorld3D(world: WorldData): World3D {
       case 'pine': {
         const s = p.size;
         B.add('trunk', cylTaper, barkMat, ch, { x: cx, y: 0.6, z: cz, sx: 0.1 * s, sy: 1.2, sz: 0.1 * s, ry: 0 });
-        const c = green(r, [0.11, 0.19, 0.17]);
+        const c = canopy(p, r, [0.11, 0.19, 0.17]);
         for (let i = 0; i < 3; i++) {
           const w = s * (0.95 - i * 0.24);
           const hh = s * (1.25 - i * 0.18);
@@ -374,6 +392,63 @@ export function buildWorld3D(world: WorldData): World3D {
         const s = p.size;
         const g = 0.07 + r() * 0.04;
         B.add('boulder', dode, stoneMat, ch, { x: cx, y: 0.18 * s, z: cz, sx: 0.55 * s, sy: 0.4 * s, sz: 0.55 * s, ry: r() * 6, rx: r() * 0.4, c: new THREE.Color(g, g, g * 1.12) });
+        break;
+      }
+      case 'deadtree': {
+        // bare, crooked trunk with a few broken branches
+        const s = p.size;
+        const th = 1.6 + s * 0.9;
+        const lean = (r() - 0.5) * 0.25;
+        B.add('trunk', cylTaper, barkMat, ch, { x: cx, y: th / 2, z: cz, sx: 0.12 * s, sy: th, sz: 0.12 * s, ry: r() * 6, rz: lean });
+        for (let i = 0; i < 3 + Math.floor(r() * 2); i++) {
+          const a = r() * Math.PI * 2;
+          const L = 0.5 + r() * 0.6 * s;
+          B.add('trunk', cylTaper, barkMat, ch, { x: cx + Math.cos(a) * L * 0.35, y: th * (0.55 + r() * 0.4), z: cz + Math.sin(a) * L * 0.35, sx: 0.045 * s, sy: L, sz: 0.045 * s, ry: -a, rz: 0.9 + r() * 0.5 }, false);
+        }
+        break;
+      }
+      case 'house': {
+        // timber house: stone base, plastered walls, a steep dark roof, a lit window
+        const s = p.size;
+        const ry = (p.v - 0.5) * 0.6;
+        const wall = new THREE.Color(0.16 + r() * 0.04, 0.14, 0.11);
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 1.1 * s, z: cz, sx: 3.6 * s, sy: 2.2 * s, sz: 2.8 * s * ZS, ry, c: wall });
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 2.6 * s, z: cz, sx: 3.0 * s, sy: 1.0 * s, sz: 2.2 * s * ZS, ry, c: new THREE.Color(0.07, 0.045, 0.035) });
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 3.3 * s, z: cz, sx: 2.0 * s, sy: 0.6 * s, sz: 1.4 * s * ZS, ry, c: new THREE.Color(0.06, 0.04, 0.03) });
+        B.add('flame', box, fireMat, ch, { x: cx + Math.cos(ry) * 0.7 * s, y: 1.3 * s, z: cz + 1.42 * s * ZS, sx: 0.4, sy: 0.4, sz: 0.04, ry: 0 }, false);
+        break;
+      }
+      case 'well': {
+        B.add('wall', cyl8, stoneMat, ch, { x: cx, y: 0.4, z: cz, sx: 0.85, sy: 0.8, sz: 0.85, ry: 0, c: new THREE.Color(0.11, 0.11, 0.12) });
+        for (const ox of [-0.7, 0.7]) B.add('log', cyl8, logMat, ch, { x: cx + ox, y: 1.2, z: cz, sx: 0.06, sy: 1.4, sz: 0.06, ry: 0 }, false);
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 2.0, z: cz, sx: 1.8, sy: 0.25, sz: 1.0, ry: 0, c: new THREE.Color(0.06, 0.04, 0.03) });
+        break;
+      }
+      case 'stall': {
+        const ry = (p.v - 0.5) * 0.4;
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 0.45, z: cz, sx: 1.4, sy: 0.9, sz: 0.8, ry, c: new THREE.Color(0.14, 0.09, 0.05) });
+        const awning = [new THREE.Color(0.35, 0.08, 0.06), new THREE.Color(0.1, 0.14, 0.32), new THREE.Color(0.32, 0.26, 0.08)][Math.floor(p.v * 3)]!;
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 1.75, z: cz, sx: 1.6, sy: 0.12, sz: 1.0, ry, rx: 0.25, c: awning }, false);
+        for (const ox of [-0.7, 0.7]) B.add('log', cyl8, logMat, ch, { x: cx + ox, y: 1.0, z: cz + 0.4, sx: 0.04, sy: 1.6, sz: 0.04, ry: 0 }, false);
+        break;
+      }
+      case 'tent': {
+        B.add('wall', cone, stoneMat, ch, { x: cx, y: 0.9, z: cz, sx: 1.3, sy: 1.8, sz: 1.3, ry: p.v * 6, c: new THREE.Color(0.17, 0.13, 0.08) });
+        break;
+      }
+      case 'stake': {
+        const h = 1.4 * p.size;
+        B.add('log', cylTaper, logMat, ch, { x: cx, y: h / 2, z: cz, sx: 0.09, sy: h, sz: 0.09, ry: 0, rz: (p.v - 0.5) * 0.3 }, false);
+        break;
+      }
+      case 'grave': {
+        const g = 0.09 + r() * 0.04;
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 0.4 * p.size, z: cz, sx: 0.5, sy: 0.8 * p.size, sz: 0.14, ry: (r() - 0.5) * 0.3, rz: (r() - 0.5) * 0.25, c: new THREE.Color(g, g, g * 1.1) });
+        break;
+      }
+      case 'bones': {
+        for (let i = 0; i < 3; i++) B.add('boulder', cyl8, stoneMat, ch, { x: cx + (r() - 0.5) * 0.8, y: 0.05, z: cz + (r() - 0.5) * 0.8, sx: 0.05, sy: 0.6, sz: 0.05, ry: r() * 6, rz: Math.PI / 2, c: new THREE.Color(0.32, 0.3, 0.26) }, false);
+        B.add('boulder', ico, stoneMat, ch, { x: cx, y: 0.14, z: cz, sx: 0.16, sy: 0.14, sz: 0.16, ry: 0, c: new THREE.Color(0.34, 0.32, 0.28) }, false);
         break;
       }
       case 'castleWall': {
@@ -445,6 +520,8 @@ export function buildWorld3D(world: WorldData): World3D {
     }
   }
   B.build(group);
+  const flora = buildFlora(world, see, disposables);
+  if (flora) group.add(flora.mesh);
   const grass = buildGrass(world, disposables);
   group.add(grass.mesh);
 
@@ -453,6 +530,7 @@ export function buildWorld3D(world: WorldData): World3D {
     see,
     fire: fireMat,
     grass: grass.uniforms,
+    flora: flora?.uniforms ?? null,
     dispose() {
       for (const d of disposables) d.dispose();
     },

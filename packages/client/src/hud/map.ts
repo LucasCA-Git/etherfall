@@ -11,6 +11,12 @@ const TILE_RGB: Record<number, [number, number, number]> = {
   [Tile.RuinFloor]: [96, 88, 76],
   [Tile.CastleFloor]: [104, 104, 112],
   [Tile.DungeonFloor]: [70, 62, 56],
+  [Tile.Snow]: [200, 206, 216],
+  [Tile.Ice]: [150, 190, 220],
+  [Tile.Ash]: [58, 54, 52],
+  [Tile.Mud]: [64, 52, 34],
+  [Tile.Cobble]: [140, 130, 112],
+  [Tile.Lava]: [255, 96, 24],
 };
 
 /** One pixel per meter: tiles, trees and walls, shared by the world map and the minimap. */
@@ -50,11 +56,11 @@ export class WorldMap {
     this.root = document.createElement('div');
     this.root.className = 'map hidden panel';
     this.canvas = document.createElement('canvas');
-    this.canvas.width = world.width * 4;
-    this.canvas.height = world.height * 4;
+    this.canvas.width = world.width * 2;
+    this.canvas.height = world.height * 2;
     const title = document.createElement('div');
     title.className = 'menu-title';
-    title.textContent = 'Floresta do Crepúsculo — M para fechar';
+    title.textContent = 'Mapa do mundo — regiões por nível · M para fechar';
     this.root.append(title, this.canvas);
     parent.append(this.root);
     this.base = buildBaseMap(world);
@@ -68,7 +74,7 @@ export class WorldMap {
   draw(entities: EntitySnap[], me: number): void {
     if (!this.open) return;
     const g = this.canvas.getContext('2d')!;
-    const s = 4;
+    const s = 2;
     g.imageSmoothingEnabled = false;
     g.drawImage(this.base, 0, 0, this.canvas.width, this.canvas.height);
     g.font = 'bold 14px "DejaVu Sans Mono", monospace';
@@ -94,6 +100,15 @@ export class WorldMap {
       g.fillText(poi.name, poi.x * s + 1, (poi.y - poi.r) * s + 1);
       g.fillStyle = '#e9d7ad';
       g.fillText(poi.name, poi.x * s, (poi.y - poi.r) * s);
+    }
+    // regions with their level range
+    g.font = 'bold 15px "DejaVu Sans Mono", monospace';
+    for (const z of this.world.zones ?? []) {
+      const t = `${z.name} · Nv ${z.minLevel}–${z.maxLevel}`;
+      g.fillStyle = 'rgba(0,0,0,0.7)';
+      g.fillText(t, z.cx * s + 1, (z.cy - 34) * s + 1);
+      g.fillStyle = '#ffe9b8';
+      g.fillText(t, z.cx * s, (z.cy - 34) * s);
     }
     g.font = 'bold 14px "DejaVu Sans Mono", monospace';
     for (const e of entities) {

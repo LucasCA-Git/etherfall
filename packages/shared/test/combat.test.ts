@@ -400,7 +400,7 @@ describe('determinism', () => {
     script(s1, p1.id);
     script(s2, p2.id);
     expect(s1.stateHash()).toBe(s2.stateHash());
-  });
+  }, 60_000); // the full 672 m world with ~380 creatures, twice
 });
 
 describe('progression curves', () => {

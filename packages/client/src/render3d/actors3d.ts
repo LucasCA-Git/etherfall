@@ -403,6 +403,12 @@ export class ActorLayer {
     cam.position.set(qx, Math.sin(PITCH) * 60, tz + Math.cos(PITCH) * 60);
     cam.lookAt(qx, 0, tz);
     cam.updateProjectionMatrix();
+    const fl = this.world.flora;
+    if (fl) {
+      fl.uRight.value.set(1, 0, 0).applyQuaternion(cam.quaternion);
+      fl.uUp.value.set(0, 1, 0).applyQuaternion(cam.quaternion);
+      fl.uFwd.value.set(0, 0, 1).applyQuaternion(cam.quaternion);
+    }
 
     this.light(f, tz);
     // shadow frustum covers the visible ground (resized only when the zoom changes enough)
@@ -559,6 +565,8 @@ export class ActorLayer {
     const day = Math.max(0, Math.min(1, f.sunLight));
     this.sun.color.setRGB(0.62 + 0.3 * day, 0.68 + 0.26 * day, 0.95 - 0.05 * day);
     this.sun.intensity = 0.3 + 1.3 * day;
+    // painted vegetation is pre-lit: scale it with the time of day like the lit scene
+    if (this.world.flora) this.world.flora.uLight.value = 0.7 + 1.9 * day + 0.9 * Math.min(1, lum) + f.flash * 2;
     // a soft cold light rides above the local player: their surroundings read even in the dark
     if (f.player) {
       this.carry.position.set(f.player.x, 2.4, f.player.y / SIN_P + 1.2);

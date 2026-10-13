@@ -26,6 +26,9 @@ export const RAMP_LEN = 24;
 export const WALL_BASE = 24;
 export const FLOOR_BASE = 36;
 export const SUB_RAMP = 12;
+/** Foliage glyphs (Flare tree billboards, alpha tag 0.86), sparse to dense: " ' * ^ % # */
+export const LEAF_BASE = 58;
+const LEAF_CANDS = `",*^%#`;
 /** 8 stroke angles at 48..55, splash 'o' at 56, '.' at 57. */
 export const STROKE_BASE = 48;
 export const SPLASH = 56;
@@ -53,7 +56,7 @@ export function buildAsciiAtlas(TW: number, TH: number): { texture: THREE.Canvas
   pg.textAlign = 'center';
   pg.textBaseline = 'middle';
   const ink = new Map<string, number>();
-  for (const ch of new Set(CANDIDATES + WALL_CANDS + FLOOR_CANDS)) {
+  for (const ch of new Set(CANDIDATES + WALL_CANDS + FLOOR_CANDS + LEAF_CANDS)) {
     pg.fillStyle = '#000';
     pg.fillRect(0, 0, TW, TH);
     pg.fillStyle = '#fff';
@@ -132,6 +135,8 @@ export function buildAsciiAtlas(TW: number, TH: number): { texture: THREE.Canvas
   }
   put(SPLASH, 'o');
   put(SPLASH + 1, '.');
+  // foliage: six leafy glyphs sorted by ink
+  [...LEAF_CANDS].sort((a, b) => (ink.get(a) ?? 0) - (ink.get(b) ?? 0)).forEach((ch, i) => put(LEAF_BASE + i, ch));
   const t = new THREE.CanvasTexture(c);
   t.generateMipmaps = false;
   t.minFilter = THREE.NearestFilter;
@@ -222,6 +227,7 @@ void main() {
   float gn = 0.0;
   float tall = 0.0;
   float an = 0.0;          // characters
+  float fn = 0.0;          // foliage (painted trees)
   for (int y = 0; y < MAXS; y++) {
     if (y >= uSub.y) break;
     for (int x = 0; x < MAXS; x++) {
@@ -245,6 +251,8 @@ void main() {
         tall += step(0.565, t.a);
       } else if (t.a < 0.8) {
         an += 1.0;
+      } else if (t.a < 0.9) {
+        fn += 1.0;
       }
     }
   }
@@ -310,6 +318,12 @@ void main() {
       // depth break: a crisp outline stroke along the edge of walls, trees and props
       glyph = strokeGlyph(atan(sf.w, sf.z) + PI * 0.5);
       edgeBoost = 1.0 + 0.6 * uEdges;
+    } else if (fn >= n * 0.4) {
+      // foliage: leaf strokes in the direction of the painted shading, leafy glyphs where it is dense,
+      // trunks (dark, vertical) as bars; brightness stays in the colour
+      if (density < 0.05) glyph = 0.0;
+      else if (n > 3.0 && coherence > 0.6 && strength > 0.03) glyph = strokeGlyph(0.5 * atan(2.0 * jxy, jxx - jyy) + PI * 0.5);
+      else glyph = float(${LEAF_BASE}) + clamp(floor(density * 6.0 + (rnd - 0.5) * 1.5), 0.0, 5.0);
     } else if (n > 3.0 && strength > (0.045 + lum * 0.25) * (1.6 - uEdges) && coherence > 0.74 && peak > 0.06) {
       // shading edge inside a surface (shadow line, mortar seam)
       glyph = strokeGlyph(0.5 * atan(2.0 * jxy, jxx - jyy) + PI * 0.5);

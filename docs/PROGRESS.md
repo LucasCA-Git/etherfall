@@ -1,6 +1,29 @@
 # ETHERFALL — Progresso
 
-_Última atualização: 12/10/2026 · Entregas 10 e 11 (0.10 + 0.11)_
+_Última atualização: 12/10/2026 · Entrega 12 (0.12)_
+
+## Novidades da 0.12 — mapa 3× com regiões por nível e vegetação do Flare
+- **Mundo de 672 × 672 m** (9× a área) dividido em **8 regiões por nível**, separadas por cordilheiras com passagens
+  abertas por estradas:
+  | Região | Bioma | Nível |
+  |---|---|---|
+  | Floresta do Crepúsculo (início) | floresta | 1–6 |
+  | Vale de Pedravelha | campos + **vila** | 4–10 |
+  | Colinas dos Goblins | campos + 2 acampamentos goblin | 6–12 |
+  | Bosque de Vaelmor | floresta + **Castelo de Vaelmor** → Cripta Afundada | 9–16 |
+  | Brejo Sombrio | pântano + **Cemitério Amaldiçoado** → Necrópole Submersa | 14–22 |
+  | Picos Gelados | neve, lago congelado, **Ninho da Serpe**, Caverna de Gelo | 20–30 |
+  | Terras de Cinza | cinzas e lava, **Covil do Dragão das Cinzas** | 28–40 |
+  | Fortaleza do Juramento | ruínas + **segundo castelo** → Forja Afundada | 34–45 |
+- 4 masmorras (portais), ~25 fogueiras (uma por região e paradas no meio das estradas), ~100 baús com o nível da região,
+  ~380 criaturas com **nível** (vida, dano e XP escalam), nome com "Nv" colorido pelo perigo, faixa ao entrar numa região
+  e aviso se ela estiver acima do seu nível. Mapa (M) mostra regiões e faixas de nível.
+- Novos terrenos: neve, gelo, cinzas, lama, calçamento e **lava** (brilha no ASCII). Novos objetos: casas, poço, barracas
+  de feira, tendas, paliçadas, túmulos, ossos e árvores mortas.
+- **Vegetação do Flare:** árvores, pinheiros (gelados na neve), árvores mortas (com neve nos picos), tendas e lápides vêm
+  dos tilesets do Flare (`tools/flare-flora.py`), desenhados como recortes instanciados dentro da cena 3D. O filtro ASCII
+  marca a folhagem: traços na direção da sombra pintada e glifos de folha (`" , * ^ % #`), com contorno pela profundidade.
+  `?flora=0` volta aos modelos 3D.
 
 ## 0.11.1 — ASCII equilibrado
 - Células de 8 px por padrão (meio-termo: detalhe nos personagens e estética de terminal; saves migram).

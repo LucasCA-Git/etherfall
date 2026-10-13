@@ -41,9 +41,9 @@ describe('world 0.4: bigger, castle and dungeon', () => {
   const world = generateWorld(20261012);
   const count = (t: Tile) => world.tiles.filter((x) => x === t).length;
 
-  it('is 224 m and contains a castle and a dungeon', () => {
-    expect(WORLD_SIZE).toBe(224);
-    expect(world.width).toBe(224);
+  it('is 672 m and contains castles and dungeons', () => {
+    expect(WORLD_SIZE).toBe(672);
+    expect(world.width).toBe(672);
     expect(count(Tile.CastleFloor)).toBeGreaterThan(400);
     expect(count(Tile.DungeonFloor)).toBeGreaterThan(300);
     expect(world.props.filter((p) => p.kind === 'castleWall').length).toBeGreaterThan(60);

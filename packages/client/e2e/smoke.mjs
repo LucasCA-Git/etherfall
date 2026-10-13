@@ -68,7 +68,7 @@ async function session(cls, query, shots) {
   const spent = () => page.evaluate(([st, r0]) => { const g = window.__etherfall; const e = g.transport.room?.sim.entities.get(g.transport.playerId); return g.inspect().me.stamina < st || (e?.staminaRegenAt ?? 0) > r0; }, [s1.me.stamina, regen0]);
   await page.mouse.move(900, 360);
   await page.mouse.down();
-  for (let i = 0; i < 40 && !(await spent()); i++) await page.waitForTimeout(100);
+  for (let i = 0; i < 100 && !(await spent()); i++) await page.waitForTimeout(100);
   await page.mouse.up();
   const s2 = await page.evaluate(() => window.__etherfall.inspect());
   check(await spent(), `[${cls}] light attack spends stamina (${s1.me.stamina.toFixed(0)} → ${s2.me.stamina.toFixed(0)})`);

@@ -1,4 +1,4 @@
-import { CHEST_NAMES, DT, TICK_RATE, Tile, generateWorld, tileAt, type AbilitySlot, type Prop, type CharacterSave, type ClassId, type EntitySnap } from '@etherfall/shared';
+import { CHEST_NAMES, DT, zoneAt, TICK_RATE, Tile, generateWorld, tileAt, type AbilitySlot, type Prop, type CharacterSave, type ClassId, type EntitySnap } from '@etherfall/shared';
 import { AudioEngine } from '../audio/audio';
 import { Hud } from '../hud/hud';
 import { WorldMap } from '../hud/map';
@@ -72,6 +72,7 @@ export class Game {
   readonly inventory: InventoryPanel;
   /** Chest props of the world (prompt + open state come from the viewer's snapshot). */
   private chests: Prop[] = [];
+  private zoneId = '';
   private dyn = new InstanceBatch(2048);
   private dynShadow = new InstanceBatch(256);
   private dynReflect = new InstanceBatch(64);
@@ -385,6 +386,15 @@ export class Game {
       if (portal) prompt = { x: portal.x, y: portal.y - 0.8, text: `[${key}] ${portal.name}` };
       else if (chest) prompt = { x: chest.x, y: chest.y - 0.8, text: `[${key}] Abrir ${CHEST_NAMES[Math.round(chest.size)] ?? 'baú'}` };
       else if (b) prompt = { x: b.x, y: b.y - 0.6, text: `[${key}] Sentar na fogueira` };
+    }
+    // entering a new level region: a banner with its name and levels
+    const zone = me ? zoneAt(this.transport.world, me.x, me.y) : null;
+    if (zone && zone.id !== this.zoneId) {
+      if (this.zoneId) {
+        this.hud.toast(`${zone.name} · Nv ${zone.minLevel}–${zone.maxLevel}`);
+        if (me && me.level < zone.minLevel - 2) this.hud.message(`Cuidado: ${zone.name} é para nível ${zone.minLevel} ou mais.`, 'bad');
+      }
+      this.zoneId = zone.id;
     }
     this.overlay.groundLoot = cur.loot ?? [];
     this.overlay.viewer = me ? { x: me.x, y: me.y } : null;

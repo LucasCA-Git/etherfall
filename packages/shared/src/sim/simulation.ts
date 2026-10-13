@@ -5,7 +5,7 @@ import { CLASSES } from '../data/classes';
 import { ATTR_MAX, ATTR_POINTS_PER_LEVEL, deriveStats, scalingMul, ESSENCE_PICKUP_RANGE, MAX_LEVEL, PLAYER_RESPAWN_TICKS, STAMINA_REGEN_PER_SEC, xpToNext } from '../data/curves';
 import { getEnemy } from '../data/enemies';
 import { updateEnemy } from '../entities/enemyAI';
-import { createEnemy, createPlayer, createProjectile } from '../entities/factory';
+import { createEnemy, createPlayer, createProjectile, enemyXpMul } from '../entities/factory';
 import { updatePlayer } from '../entities/playerControl';
 import { Rng } from '../math/rng';
 import type { Vec2 } from '../math/vec2';
@@ -53,7 +53,7 @@ export class Simulation implements SimContext {
     this.rng = new Rng(opts.seed ?? opts.world.seed ^ 0x5eed);
     for (const p of this.world.props) if (p.solid) this.statics.insert({ x: p.x, y: p.y, r: p.r });
     if (opts.spawnEnemies !== false) {
-      this.world.enemySpawns.forEach((s, i) => this.spawnEnemy(s.enemyId, s.x, s.y, i));
+      this.world.enemySpawns.forEach((s, i) => this.spawnEnemy(s.enemyId, s.x, s.y, i, s.level ?? 1));
     }
   }
 
@@ -107,8 +107,8 @@ export class Simulation implements SimContext {
     return true;
   }
 
-  spawnEnemy(enemyId: string, x: number, y: number, spawnIndex = -1): Entity {
-    const e = createEnemy(this.nextId++, enemyId, { x, y }, this.tick, spawnIndex);
+  spawnEnemy(enemyId: string, x: number, y: number, spawnIndex = -1, level = 1): Entity {
+    const e = createEnemy(this.nextId++, enemyId, { x, y }, this.tick, spawnIndex, level);
     this.entities.set(e.id, e);
     return e;
   }
@@ -394,7 +394,7 @@ export class Simulation implements SimContext {
     e.openedChests.push(propId);
     const tier = Math.max(0, Math.min(2, Math.round(prop.size))) as ChestTier;
     this.emit({ type: 'chest', id: e.id, prop: propId, tier, x: prop.x, y: prop.y });
-    this.scatterLoot(rollChest(this.rng, tier, e.level, e.classId), prop.x, prop.y + 0.9, e.id);
+    this.scatterLoot(rollChest(this.rng, tier, prop.lvl ?? e.level, e.classId), prop.x, prop.y + 0.9, e.id);
     return true;
   }
 
@@ -453,10 +453,10 @@ export class Simulation implements SimContext {
     // a summon's kill belongs to its caster
     const credit = killer?.ownerId !== undefined ? this.entities.get(killer.ownerId) ?? null : killer;
     if (target.kind === 'enemy' && target.ownerId === undefined && credit && credit.kind === 'player' && target.enemyId) {
-      const xp = getEnemy(target.enemyId).xp;
+      const xp = Math.round(getEnemy(target.enemyId).xp * enemyXpMul(target.level));
       this.emit({ type: 'kill', killer: credit.id, victim: target.id, xp });
       this.grantXp(credit, xp, 'kill');
-      const drops = rollEnemyDrops(this.rng, target.enemyId, xp, credit.level + (xp >= 400 ? 3 : 0), credit.classId);
+      const drops = rollEnemyDrops(this.rng, target.enemyId, getEnemy(target.enemyId).xp, Math.max(target.level, Math.min(credit.level, target.level + 3)) + (getEnemy(target.enemyId).xp >= 400 ? 2 : 0), credit.classId);
       if (drops.length) this.scatterLoot(drops, target.pos.x, target.pos.y, credit.id);
     }
   }
@@ -666,7 +666,7 @@ export class Simulation implements SimContext {
         continue;
       }
       const s = this.world.enemySpawns[r.spawnIndex];
-      if (s) this.spawnEnemy(s.enemyId, s.x, s.y, r.spawnIndex);
+      if (s) this.spawnEnemy(s.enemyId, s.x, s.y, r.spawnIndex, s.level ?? 1);
     }
     this.respawnQueue = keep;
   }

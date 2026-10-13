@@ -101,6 +101,7 @@ export class Overlay {
     }
     g.font = '600 11px "DejaVu Sans Mono", Menlo, monospace';
 
+    const myLevel = entities.find((x) => x.id === me)?.level ?? 1;
     for (const e of entities) {
       if (e.kind === 'projectile' || e.dead) continue;
       const p = toScreen(e.x, e.y - (head ? head(e) : e.enemyId === 'ashwolf' ? 1.3 : e.enemyId === 'giantspider' ? 1.7 : 2.15));
@@ -127,8 +128,10 @@ export class Overlay {
         g.fillRect(p.x - w / 2 - 1, p.y - 7, w + 2, 5);
         g.fillStyle = '#b3261e';
         g.fillRect(p.x - w / 2, p.y - 6, w * k, 3);
-        g.fillStyle = 'rgba(220,200,180,0.75)';
-        g.fillText(e.name, p.x, p.y - 9);
+        // name + level, coloured by how dangerous it is for you
+        const diff = e.level - myLevel;
+        g.fillStyle = diff >= 6 ? 'rgba(255,90,70,0.95)' : diff >= 3 ? 'rgba(255,170,80,0.9)' : diff <= -6 ? 'rgba(150,150,150,0.7)' : 'rgba(220,200,180,0.8)';
+        g.fillText(`${e.name} · Nv ${e.level}`, p.x, p.y - 9);
         if (e.action === 'stagger' || e.action === 'parried' || e.action === 'guardbreak') {
           g.fillStyle = '#ffd34d';
           g.fillText(e.action === 'parried' ? 'VULNERÁVEL' : '!', p.x, p.y - 21);

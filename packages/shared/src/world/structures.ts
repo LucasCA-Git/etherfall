@@ -51,7 +51,7 @@ const torch = (c: BuildCtx, x: number, y: number) => c.addProp({ kind: 'torch', 
  * Castelo de Vaelmor: curtain wall with four towers, a south gate flanked by torches,
  * a courtyard (bonfire, pillars) and an inner keep that hides the crypt entrance.
  */
-export function buildCastle(c: BuildCtx, cx: number, cy: number): CastleInfo {
+export function buildCastle(c: BuildCtx, cx: number, cy: number, id = 'castle', name = 'Castelo de Vaelmor'): CastleInfo {
   const hw = 18;
   const hh = 14;
   const x0 = Math.round(cx - hw);
@@ -130,8 +130,8 @@ export function buildCastle(c: BuildCtx, cx: number, cy: number): CastleInfo {
     { x: cx + 10, y: ky1 + 4, enemyId: 'skeleton_archer' },
     { x: cx + 3, y: ky0 + 6.5, enemyId: 'skeleton_mage' },
   ];
-  const region: Region = { kind: 'castle', name: 'Castelo de Vaelmor', x0, y0, x1: x1 + 1, y1: y1 + 1 };
-  const poi: Poi = { id: 'castle', name: 'Castelo de Vaelmor', x: cx, y: cy + 4, r: 12, xp: 100 };
+  const region: Region = { kind: 'castle', name, x0, y0, x1: x1 + 1, y1: y1 + 1 };
+  const poi: Poi = { id, name, x: cx, y: cy + 4, r: 12, xp: 100 };
   return { x0, y0, x1, y1, cx, cy, gate: { x: cx, y: y1 + 3 }, crypt, spawns, region, poi };
 }
 
@@ -139,7 +139,16 @@ export function buildCastle(c: BuildCtx, cx: number, cy: number): CastleInfo {
  * Cripta Afundada: rooms carved out of solid rock, linked by corridors in a snake order
  * (so every room is reachable from the entrance), lit by torches. Reached by portal.
  */
-export function buildDungeon(c: BuildCtx, x0: number, y0: number, x1: number, y1: number): DungeonInfo {
+export type DungeonTheme = 'crypt' | 'ice' | 'necro' | 'ash';
+const DUNGEON_FOES: Record<DungeonTheme, { big: string; small: [string, string]; caster: string; boss: string }> = {
+  crypt: { big: 'giantspider', small: ['hollow', 'skeleton'], caster: 'skeleton_mage', boss: 'cursed_grave' },
+  ice: { big: 'ice_ant', small: ['skeleton', 'ice_ant'], caster: 'skeleton_mage', boss: 'frost_wyvern' },
+  necro: { big: 'skeleton', small: ['hollow', 'skeleton_archer'], caster: 'skeleton_mage', boss: 'cursed_grave' },
+  ash: { big: 'fire_ant', small: ['skeleton', 'fire_ant'], caster: 'skeleton_mage', boss: 'bonegiant' },
+};
+
+export function buildDungeon(c: BuildCtx, x0: number, y0: number, x1: number, y1: number, id = 'crypt', name = 'Cripta Afundada', theme: DungeonTheme = 'crypt'): DungeonInfo {
+  const foes = DUNGEON_FOES[theme];
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) c.set(x, y, Tile.Rock);
   const cols = 4;
   const rows = 2;
@@ -207,19 +216,134 @@ export function buildDungeon(c: BuildCtx, x0: number, y0: number, x1: number, y1
       const a = (n++ / total) * Math.PI * 2 + 0.4;
       spawns.push({ x: Math.floor(rm.cx + Math.cos(a) * 2) + 0.5, y: Math.floor(rm.cy + Math.sin(a) * 1.6) + 0.5, enemyId });
     };
-    for (let k = 0; k < spiders; k++) place('giantspider');
-    for (let k = 0; k < hollows; k++) place(i % 3 === 1 ? 'skeleton' : 'hollow');
-    if (last) place('cursed_grave');
-    else if (i % 2 === 1) place('skeleton_mage');
+    for (let k = 0; k < spiders; k++) place(foes.big);
+    for (let k = 0; k < hollows; k++) place(foes.small[i % 3 === 1 ? 1 : 0]);
+    if (last) place(foes.boss);
+    else if (i % 2 === 1) place(foes.caster);
   });
-  const region: Region = { kind: 'dungeon', name: 'Cripta Afundada', x0, y0, x1: x1 + 1, y1: y1 + 1 };
-  const poi: Poi = { id: 'crypt', name: 'Cripta Afundada', x: s.cx, y: s.cy, r: 5, xp: 150 };
+  const region: Region = { kind: 'dungeon', name, x0, y0, x1: x1 + 1, y1: y1 + 1 };
+  const poi: Poi = { id, name, x: s.cx, y: s.cy, r: 5, xp: 150 };
   return { start, exit, spawns, region, poi };
 }
 
-export function makePortals(castle: CastleInfo, dungeon: DungeonInfo): Portal[] {
+/** A two-way portal pair between an entrance in the open world and a dungeon's first room. */
+export function makePortals(entrance: { x: number; y: number }, dungeon: DungeonInfo, id: string, downName: string, upName: string): Portal[] {
   return [
-    { id: 'crypt-down', name: 'Descer à Cripta', x: castle.crypt.x, y: castle.crypt.y, r: 1.3, toX: dungeon.start.x, toY: dungeon.start.y },
-    { id: 'crypt-up', name: 'Subir ao Castelo', x: dungeon.exit.x, y: dungeon.exit.y, r: 1.3, toX: castle.crypt.x, toY: castle.crypt.y + 2.6 },
+    { id: `${id}-down`, name: downName, x: entrance.x, y: entrance.y, r: 1.3, toX: dungeon.start.x, toY: dungeon.start.y },
+    { id: `${id}-up`, name: upName, x: dungeon.exit.x, y: dungeon.exit.y, r: 1.3, toX: entrance.x, toY: entrance.y + 2.6 },
   ];
+}
+
+// ------------------------------------------------------------------ 0.12: settlements and lairs
+export interface SiteInfo {
+  poi: Poi;
+  spawns: EnemySpawn[];
+  /** Where a road should arrive. */
+  door: { x: number; y: number };
+  /** Optional dungeon entrance (portal) inside the site. */
+  entrance?: { x: number; y: number };
+}
+
+const disc = (c: BuildCtx, cx: number, cy: number, r: number, t: Tile, ragged = 0) => {
+  for (let y = Math.floor(cy - r - 2); y <= cy + r + 2; y++) {
+    for (let x = Math.floor(cx - r - 2); x <= cx + r + 2; x++) {
+      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) + (ragged ? (c.rng.next() - 0.5) * ragged : 0);
+      if (d < r) c.set(x, y, t);
+    }
+  }
+};
+
+/** A village: cobbled plaza with a well, houses in a ring, market stalls, a bonfire and torches. Safe ground. */
+export function buildVillage(c: BuildCtx, cx: number, cy: number, id: string, name: string): SiteInfo {
+  disc(c, cx, cy, 20, Tile.Grass);
+  disc(c, cx, cy, 7.5, Tile.Cobble);
+  // cobbled lanes to the four winds
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    for (let k = 0; k < 19; k++) for (let o = -1; o <= 1; o++) c.set(Math.floor(cx + dx * k + (dy ? o : 0)), Math.floor(cy + dy * k + (dx ? o : 0)), Tile.Cobble);
+  }
+  c.addProp({ kind: 'well', x: cx, y: cy, r: 0.9, size: 1, solid: true, v: c.rng.next() });
+  const angles = [0.4, 1.15, 1.95, 2.75, 3.55, 4.35, 5.1, 5.85];
+  for (const a of angles) {
+    const R = 12.5 + c.rng.range(-1, 1.5);
+    const x = cx + Math.cos(a) * R;
+    const y = cy + Math.sin(a) * R * 0.85;
+    c.addProp({ kind: 'house', x, y, r: 2.3, size: 0.9 + c.rng.next() * 0.45, solid: true, v: c.rng.next() });
+  }
+  for (const [ox, oy] of [[-4.5, 3.5], [4.5, 3.5], [-4.5, -3.8]] as const) c.addProp({ kind: 'stall', x: cx + ox, y: cy + oy, r: 0.8, size: 1, solid: true, v: c.rng.next() });
+  c.addProp({ kind: 'bonfire', x: cx + 4.2, y: cy - 3.6, r: 0.45, size: 0.6, solid: true, v: 0.6 });
+  for (const [ox, oy] of [[-7, -7], [7, -7], [-7, 7], [7, 7]] as const) torch(c, cx + ox, cy + oy);
+  c.addProp({ kind: 'chest', x: cx - 9, y: cy - 2, r: 0.45, size: 0, solid: true, v: c.rng.next() });
+  return { poi: { id, name, x: cx, y: cy, r: 14, xp: 80 }, spawns: [], door: { x: cx, y: cy + 18 } };
+}
+
+/** A goblin camp: trampled ground, a palisade of stakes, tents around a fire pit, a chief and his band. */
+export function buildGoblinCamp(c: BuildCtx, cx: number, cy: number, id: string, name: string): SiteInfo {
+  disc(c, cx, cy, 9, Tile.Dirt, 1.5);
+  for (let i = 0; i < 34; i++) {
+    const a = (i / 34) * Math.PI * 2;
+    if (Math.abs(Math.sin(a) - 1) < 0.08) continue; // gap facing south
+    c.addProp({ kind: 'stake', x: cx + Math.cos(a) * 9.5, y: cy + Math.sin(a) * 8, r: 0.3, size: 0.8 + c.rng.next() * 0.4, solid: true, v: c.rng.next() });
+  }
+  for (const a of [0.5, 2.0, 3.6, 5.0]) c.addProp({ kind: 'tent', x: cx + Math.cos(a) * 5.2, y: cy + Math.sin(a) * 4.4, r: 1.2, size: 1, solid: true, v: c.rng.next() });
+  torch(c, cx, cy);
+  torch(c, cx + 0.6, cy + 0.3);
+  c.addProp({ kind: 'chest', x: cx - 1.5, y: cy - 6, r: 0.45, size: 1, solid: true, v: c.rng.next() });
+  const spawns: EnemySpawn[] = [{ x: cx + 2, y: cy + 1.5, enemyId: 'goblin_chief' }];
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + 0.8;
+    spawns.push({ x: cx + Math.cos(a) * 3, y: cy + Math.sin(a) * 2.5, enemyId: 'goblin' });
+  }
+  return { poi: { id, name, x: cx, y: cy, r: 10, xp: 90 }, spawns, door: { x: cx, y: cy + 11 } };
+}
+
+/** A cursed graveyard: rows of tombstones on muddy ground, cursed graves that raise the dead, a crypt door. */
+export function buildGraveyard(c: BuildCtx, cx: number, cy: number, id: string, name: string): SiteInfo {
+  for (let y = Math.floor(cy - 8); y <= cy + 8; y++) for (let x = Math.floor(cx - 11); x <= cx + 11; x++) c.set(x, y, Tile.Mud);
+  for (let gy = -6; gy <= 5; gy += 2.5) {
+    for (let gx = -9; gx <= 9; gx += 2.2) {
+      if (Math.abs(gx) < 2 || c.rng.next() < 0.2) continue;
+      c.addProp({ kind: 'grave', x: cx + gx + c.rng.range(-0.3, 0.3), y: cy + gy, r: 0.32, size: 0.8 + c.rng.next() * 0.5, solid: true, v: c.rng.next() });
+    }
+  }
+  for (let x = Math.floor(cx - 11); x <= cx + 11; x++) {
+    if (Math.abs(x + 0.5 - cx) > 2) c.addProp({ kind: 'ruinWall', x: x + 0.5, y: cy - 8.5, r: 0.55, size: 1, solid: true, v: c.rng.next() });
+  }
+  torch(c, cx - 2.4, cy - 7.5);
+  torch(c, cx + 2.4, cy - 7.5);
+  c.addProp({ kind: 'chest', x: cx + 9, y: cy + 6, r: 0.45, size: 1, solid: true, v: c.rng.next() });
+  const spawns: EnemySpawn[] = [
+    { x: cx - 6, y: cy - 2, enemyId: 'cursed_grave' },
+    { x: cx + 6, y: cy + 1, enemyId: 'cursed_grave' },
+    { x: cx, y: cy + 3, enemyId: 'skeleton_mage' },
+    { x: cx - 3, y: cy + 5, enemyId: 'skeleton' },
+    { x: cx + 3, y: cy - 4, enemyId: 'hollow' },
+  ];
+  return { poi: { id, name, x: cx, y: cy, r: 12, xp: 140 }, spawns, door: { x: cx, y: cy + 10 }, entrance: { x: cx, y: cy - 6.5 } };
+}
+
+/** A beast's lair: a scorched (or frozen) arena ringed by boulders, bones and a gilded chest. */
+export function buildLair(c: BuildCtx, cx: number, cy: number, id: string, name: string, kind: 'dragon' | 'wyvern'): SiteInfo {
+  const floor = kind === 'dragon' ? Tile.Ash : Tile.Ice;
+  disc(c, cx, cy, 13, floor, 2);
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2 + c.rng.range(-0.08, 0.08);
+    if (Math.abs(Math.sin(a) - 1) < 0.16) continue; // way in from the south
+    const R = 13.5 + c.rng.range(0, 1.5);
+    c.addProp({ kind: 'rock', x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R * 0.85, r: 0.9, size: 1.2 + c.rng.next() * 0.8, solid: true, v: c.rng.next() });
+  }
+  for (let i = 0; i < 9; i++) c.addProp({ kind: 'bones', x: cx + c.rng.range(-8, 8), y: cy + c.rng.range(-7, 7), r: 0, size: 0.5, solid: false, v: c.rng.next() });
+  if (kind === 'dragon') {
+    for (let i = 0; i < 4; i++) {
+      const a = c.rng.range(0, Math.PI * 2);
+      disc(c, cx + Math.cos(a) * 7, cy + Math.sin(a) * 6, 1.6 + c.rng.next(), Tile.Lava, 1);
+    }
+  }
+  c.addProp({ kind: 'chest', x: cx, y: cy - 9, r: 0.45, size: 2, solid: true, v: c.rng.next() });
+  const boss = kind === 'dragon' ? 'fire_dragon' : 'frost_wyvern';
+  const guard = kind === 'dragon' ? 'fire_ant' : 'ice_ant';
+  return {
+    poi: { id, name, x: cx, y: cy, r: 13, xp: 250 },
+    spawns: [{ x: cx, y: cy - 2, enemyId: boss }, { x: cx - 8, y: cy + 4, enemyId: guard }, { x: cx + 8, y: cy + 4, enemyId: guard }],
+    door: { x: cx, y: cy + 15 },
+  };
 }

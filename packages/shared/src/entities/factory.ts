@@ -40,14 +40,20 @@ export function createPlayer(id: number, name: string, classId: ClassId, pos: Ve
   return e;
 }
 
-export function createEnemy(id: number, enemyId: string, pos: Vec2, tick: number, spawnIndex = -1): Entity {
+/** Creature scaling with level: health grows faster than damage (fights get longer, not one-shots). */
+export const enemyHpMul = (level: number) => 1 + 0.14 * (Math.max(1, level) - 1);
+export const enemyDmgMul = (level: number) => 1 + 0.075 * (Math.max(1, level) - 1);
+export const enemyXpMul = (level: number) => 1 + 0.12 * (Math.max(1, level) - 1);
+
+export function createEnemy(id: number, enemyId: string, pos: Vec2, tick: number, spawnIndex = -1, level = 1): Entity {
   const d = getEnemy(enemyId);
   const e = base(id, 'enemy', d.name, pos, tick);
   e.enemyId = enemyId;
   e.team = 1;
+  e.level = Math.max(1, Math.min(60, Math.round(level)));
   e.radius = d.radius;
   e.mass = d.mass;
-  e.maxHp = e.hp = d.hp;
+  e.maxHp = e.hp = Math.round(d.hp * enemyHpMul(e.level));
   e.maxPoise = e.poise = d.poise;
   e.maxStamina = e.stamina = 100;
   e.facing = Math.PI / 2;

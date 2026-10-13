@@ -190,10 +190,20 @@ Com 5 pontos num braço, ele vira o **título** do personagem (ex.: "Vanguarda �
 
 ## 6. O mundo
 
-- **Acampamento do Crepúsculo:** ponto de partida, com fogueira.
-- **Floresta do Crepúsculo:** lobos, esqueletos e, nas bordas, vampiros, aranhas e colossos.
-- **Castelo de Vaelmor (norte):** muralhas, pátio com fogueira e torre de menagem. Dentro dele não chove.
-- **Cripta Afundada:** oito salas subterrâneas cheias de aranhas gigantes. A entrada é pelo portal na torre de menagem, e o portal não funciona se você levou dano nos últimos 3 s.
+Um continente de 672 × 672 m em **8 regiões por nível** (mapa com **M**), ligadas por estradas que atravessam as cordilheiras:
+
+| Região | Nível | Destaques |
+|---|---|---|
+| Floresta do Crepúsculo | 1–6 | acampamento inicial, ruínas, Lago Espelhado |
+| Vale de Pedravelha | 4–10 | **Vila de Pedravelha** (poço, casas, feira, fogueira) |
+| Colinas dos Goblins | 6–12 | Acampamento Goblin e Toca do Rei Goblin |
+| Bosque de Vaelmor | 9–16 | **Castelo de Vaelmor** → portal para a Cripta Afundada |
+| Brejo Sombrio | 14–22 | **Cemitério Amaldiçoado** → Necrópole Submersa |
+| Picos Gelados | 20–30 | lago congelado, **Ninho da Serpe**, Caverna de Gelo |
+| Terras de Cinza | 28–40 | lava e o **Covil do Dragão das Cinzas** |
+| Fortaleza do Juramento | 34–45 | segundo castelo → Forja Afundada |
+
+As criaturas têm nível (o nome mostra "Nv", em laranja/vermelho quando são perigosas para você); vida, dano e XP crescem com ele. Há fogueiras em todas as regiões e no meio das estradas, e ~100 baús com itens do nível da região. Portais de masmorra não funcionam se você levou dano nos últimos 3 s.
 - **Clima:** começa seco e chove cerca de 30% do tempo, quase sempre garoa; tempestades com raios são raras. Os ciclos de dia e noite são iguais para todos no servidor.
 
 ---
@@ -224,7 +234,7 @@ Variáveis de ambiente (opcionais):
 ## 8. Desenvolvimento
 
 ```bash
-npm test                 # 149 testes: simulação, combate, talentos, invocações, saves, contas, servidor WebSocket
+npm test                 # 154 testes: simulação, combate, talentos, invocações, saves, contas, servidor WebSocket
 npm run build && npm run e2e   # E2E no Chromium: classes, fogueira, talentos, login online, saves offline
 ```
 O E2E precisa de um Chromium. Use `CHROMIUM_PATH=/caminho/chrome` ou `npx playwright install chromium`.
