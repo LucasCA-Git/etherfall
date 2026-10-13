@@ -124,7 +124,7 @@ export const LEGENDARIES: Readonly<Record<string, { name: string; base: string; 
   broken_oath: { name: 'Amuleto do Juramento Partido', base: 'amulet', affixes: [{ stat: 'berserk', value: 0.35 }, { stat: 'dmg', value: 0.08 }], lore: 'Mais forte quanto mais perto da morte.' },
   dawn_scepter: { name: 'Cetro da Primeira Aurora', base: 'rod', affixes: [{ stat: 'healPower', value: 0.2 }, { stat: 'manaRegen', value: 0.2 }], imbue: 'holy', lore: 'Brilha mesmo nas criptas.' },
   goblin_king_axe: { name: 'Machado do Rei Goblin', base: 'battleaxe', affixes: [{ stat: 'dmgPhysical', value: 0.14 }, { stat: 'berserk', value: 0.2 }], imbue: 'poison', lore: 'Nunca foi lavado. Nunca.', from: ['goblin_chief'] },
-  abyss_wand: { name: 'Varinha do Abismo', base: 'wand', affixes: [{ stat: 'dotPower', value: 0.25 }, { stat: 'lifesteal', value: 0.03 }], imbue: 'shadow', lore: 'Sussurra nomes de demônios.' },
+  abyss_wand: { name: 'Varinha do Abismo', base: 'wand', affixes: [{ stat: 'dotPower', value: 0.25 }, { stat: 'lifesteal', value: 0.03 }], imbue: 'shadow', lore: 'Sussurra nomes de demônios.', from: ['demon', 'cult_leader'] },
   storm_staff: { name: 'Cajado da Tempestade', base: 'greatstaff', affixes: [{ stat: 'dmgArcane', value: 0.15 }, { stat: 'cooldown', value: 0.06 }], imbue: 'lightning', lore: 'O céu responde quando ele aponta.' },
   bulwark: { name: 'Muralha de Ferro', base: 'kiteshield', affixes: [{ stat: 'blockAbsorb', value: 0.12 }, { stat: 'armor', value: 0.06 }, { stat: 'maxHp', value: 0.06 }], lore: 'Nenhum portão caiu enquanto ela esteve de pé.' },
 };

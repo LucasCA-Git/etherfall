@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Simulation } from '../src/sim/simulation';
 import { Btn, type Entity, type SimEvent } from '../src/sim/types';
 import { Tile } from '../src/world/tiles';
-import { DEFAULT_WORLD_SEED, generateWorld, zoneAt, type EnemySpawn, type WorldData } from '../src/world/worldgen';
+import { DEFAULT_WORLD_SEED, SAFE_RADIUS, generateWorld, sanctuaryAt, zoneAt, type EnemySpawn, type WorldData } from '../src/world/worldgen';
 import { CHANT, DEMON_LINE, SUMMON_LINE, VILLAGER_LINES } from '../src/sim/living';
 
 const world = generateWorld(DEFAULT_WORLD_SEED);
@@ -135,5 +135,26 @@ describe('0.13 living world', () => {
     for (let i = 0; i < 30 * 25; i++) ev.push(...sim.step());
     expect(sim.living.phases()[0]!.phase).toBe('broken');
     expect([...sim.entities.values()].some((e) => e.enemyId === 'demon')).toBe(false);
+  });
+
+  it('bonfires are sanctuaries: no monster nearby, a tent at the wild ones, monsters won\'t hunt there', () => {
+    const fires = world.props.filter((p) => p.kind === 'bonfire');
+    const tame = new Set(['deer', 'rabbit', 'boar', 'villager']);
+    for (const s of world.enemySpawns) if (!tame.has(s.enemyId)) expect(sanctuaryAt(world, s.x, s.y), `${s.enemyId} ${s.x},${s.y}`).toBeNull();
+    const tents = world.props.filter((p) => p.kind === 'tent' && fires.some((f) => Math.hypot(f.x - p.x, f.y - p.y) < 3.2));
+    expect(tents.length).toBeGreaterThan(8);
+    const fire = { x: 30.5, y: 30.5 };
+    const sim = new Simulation({ world: flatWorld({ props: [{ id: 1, kind: 'bonfire', x: fire.x, y: fire.y, r: 0.45, size: 0.6, solid: true, v: 0 }] }), spawnEnemies: false });
+    const p = sim.addPlayer('Abrigado', 'vanguard', { x: fire.x + 2, y: fire.y });
+    const skel = sim.spawnEnemy('skeleton', fire.x + 2 + SAFE_RADIUS + 1.5, fire.y);
+    const deer = sim.spawnEnemy('deer', fire.x - 3, fire.y + 2);
+    for (let i = 0; i < 30 * 6; i++) sim.step();
+    expect(skel.ai!.targetId).toBe(-1);
+    expect(p.hp).toBe(p.maxHp);
+    expect(deer.ai!.mode).not.toBe('flee');
+    // out in the open the same skeleton comes for you
+    p.pos.x = p.prevPos.x = fire.x + SAFE_RADIUS + 6;
+    for (let i = 0; i < 30 * 2; i++) sim.step();
+    expect(skel.ai!.targetId).toBe(p.id);
   });
 });

@@ -435,7 +435,22 @@ export function buildWorld3D(world: WorldData): World3D {
         break;
       }
       case 'tent': {
-        B.add('wall', cone, stoneMat, ch, { x: cx, y: 0.9, z: cz, sx: 1.3, sy: 1.8, sz: 1.3, ry: p.v * 6, c: new THREE.Color(0.17, 0.13, 0.08) });
+        // A-frame canvas shelter: two sloped panels on a ridge pole, posts at the ends
+        const canvas = new THREE.Color(0.3 + r() * 0.06, 0.23, 0.13);
+        const along = false; // ridge pointing away from the camera: both slopes read, lit and shaded
+        const T = 0.85;
+        const off = 0.575 * Math.cos(T);
+        const cyy = 1.15 - 0.575 * Math.sin(T);
+        for (const sd of [-1, 1]) {
+          if (along) B.add('wall', box, stoneMat, ch, { x: cx, y: cyy, z: cz + sd * off, sx: 2.1, sy: 0.05, sz: 1.15, ry: 0, rx: sd * T, c: canvas });
+          else B.add('wall', box, stoneMat, ch, { x: cx + sd * off, y: cyy, z: cz, sx: 1.15, sy: 0.05, sz: 1.9, ry: 0, rz: -sd * T, c: canvas });
+          const px = along ? cx + sd * 1.0 : cx;
+          const pz = along ? cz : cz + sd * 1.0;
+          B.add('log', cyl8, logMat, ch, { x: px, y: 0.6, z: pz, sx: 0.045, sy: 1.25, sz: 0.045, ry: 0 }, false);
+        }
+        B.add('log', cyl8, logMat, ch, { x: cx, y: 1.17, z: cz, sx: 0.04, sy: 2.2, sz: 0.04, ry: 0, rx: along ? 0 : Math.PI / 2, rz: along ? Math.PI / 2 : 0 }, false);
+        // a bedroll under it
+        B.add('boulder', box, stoneMat, ch, { x: cx, y: 0.04, z: cz, sx: along ? 1.6 : 0.6, sy: 0.08, sz: along ? 0.6 : 1.6, ry: 0, c: new THREE.Color(0.2, 0.08, 0.06) }, false);
         break;
       }
       case 'stake': {

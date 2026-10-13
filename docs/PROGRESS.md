@@ -1,8 +1,20 @@
 # ETHERFALL — Progresso
 
-_Última atualização: 12/10/2026 · Entrega 13 (0.13)_
+_Última atualização: 13/10/2026 · Entrega 13 (0.13.1)_
 
-## Novidades da 0.13 — mundo vivo
+## 0.13.1 — fogueiras como refúgio, minimapa novo e guia
+- **Fogueira é refúgio:** nenhum monstro nasce a menos de 11 m de uma fogueira (vale também para a sala inicial das
+  masmorras). Monstros não caçam quem está a 9 m dela e, se entrarem na luz, voltam ao covil. Fogueiras no meio do mato
+  ganham uma **tenda** (modelo 3D em A, com saco de dormir) e coelhos, cervos ou javalis pastando por perto. Animais
+  não fogem de jogadores perto do fogo.
+- **Minimapa redesenhado:** terreno suavizado com vinheta, aro dourado duplo com marcas de bússola e "N", halo laranja
+  do refúgio de cada fogueira, baús fechados (cor pelo tipo), círculos de invocação pulsando, portais, animais em
+  bege, aldeões em creme, chefes maiores e a seta do jogador com contorno e brilho.
+- **Guia e banco de dados** em [`docs/GUIA.md`](GUIA.md): classes e caminhos, roteiro de níveis, criaturas, rituais,
+  baús por região, lendários e onde caem, runas e o melhor equipamento por fase.
+- A Varinha do Abismo agora cai do Demônio do Abismo e do Arauto.
+
+## 0.13 — mundo vivo
 - **Animais** (equipe neutra): ~85 cervos, ~60 coelhos e ~30 javalis em bandos pelas regiões verdes, no brejo e na neve
   (nenhum nas Cinzas). Pastam (cabeça na grama), passeiam em volta do bando e **fogem** de jogadores e monstros;
   quem chega **andando** chega mais perto do que quem corre. O **javali revida** quando apanha. Monstros não caçam animais.

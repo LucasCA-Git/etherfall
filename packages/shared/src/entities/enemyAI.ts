@@ -2,6 +2,7 @@ import { isDead, startAction } from '../combat/combat';
 import { getEnemy } from '../data/enemies';
 import { hasStatus, statusMoveMul } from '../combat/statuses';
 import { angleTo, dist, turnToward } from '../math/vec2';
+import { sanctuaryAt } from '../world/worldgen';
 import type { SimContext } from '../sim/context';
 import { DT, type Entity } from '../sim/types';
 
@@ -48,8 +49,11 @@ export function updateEnemy(ctx: SimContext, e: Entity): void {
     }
   }
   // monsters leave the wildlife alone; everyone else is fair game
+  // monsters never hunt inside a bonfire's sanctuary
+  const monster = e.team === 1;
   const hostile = (p: Entity) =>
-    p.team !== e.team && p.kind !== 'projectile' && !isDead(p) && !hasStatus(p, 'stealth', ctx.tick) && (p.team !== 2 || p === attacker);
+    p.team !== e.team && p.kind !== 'projectile' && !isDead(p) && !hasStatus(p, 'stealth', ctx.tick) && (p.team !== 2 || p === attacker) &&
+    !(monster && sanctuaryAt(ctx.world, p.pos.x, p.pos.y));
   let target = ai.targetId >= 0 ? ctx.entities.get(ai.targetId) : undefined;
   if (target && !hostile(target)) target = undefined;
   if (!target && attacker && hostile(attacker) && ai.mode !== 'return') {
@@ -57,6 +61,11 @@ export function updateEnemy(ctx: SimContext, e: Entity): void {
     ai.mode = 'chase';
   }
   const chaseRange = Math.max(def.aggroRange, attacker ? 14 : 0);
+  if (monster && ai.mode !== 'return' && !owner && sanctuaryAt(ctx.world, e.pos.x, e.pos.y, -1.5)) {
+    // stepped into the firelight: back off to its lair
+    target = undefined;
+    ai.mode = 'return';
+  }
 
   if (ctx.tick >= ai.nextThink) {
     ai.nextThink = ctx.tick + THINK_INTERVAL;
@@ -188,8 +197,10 @@ function calmBrain(ctx: SimContext, e: Entity, behavior: 'passive' | 'villager',
   const ai = e.ai!;
   const def = getEnemy(e.enemyId!);
   const anchor = ai.anchor ?? ai.home;
+  // by the fire the animals are at ease: people don't scare them there
+  const calm = behavior === 'passive' && !!sanctuaryAt(ctx.world, e.pos.x, e.pos.y);
   const scary = (p: Entity) =>
-    p.kind !== 'projectile' && !isDead(p) && p.team !== e.team && (behavior === 'passive' ? p.team !== 2 : p.team === 1) && !hasStatus(p, 'stealth', ctx.tick);
+    p.kind !== 'projectile' && !isDead(p) && p.team !== e.team && (behavior === 'passive' ? p.team !== 2 && !(p.kind === 'player' && calm) : p.team === 1) && !hasStatus(p, 'stealth', ctx.tick);
   let threat = ai.targetId >= 0 ? ctx.entities.get(ai.targetId) : undefined;
   if (threat && (!scary(threat) || (ctx.tick > (ai.fleeUntil ?? 0) && dist(threat.pos, e.pos) > (def.fleeRange ?? 8) * 1.6))) threat = undefined;
   if (attacker && !isDead(attacker) && attacker !== threat) {
@@ -260,8 +271,9 @@ function calmBrain(ctx: SimContext, e: Entity, behavior: 'passive' | 'villager',
 
 function spooked(ctx: SimContext, e: Entity): boolean {
   const r = getEnemy(e.enemyId!).fleeRange ?? 8;
+  const calm = !!sanctuaryAt(ctx.world, e.pos.x, e.pos.y);
   for (const { e: p } of ctx.dynamics.query(e.pos.x, e.pos.y, r)) {
-    if (p.kind === 'projectile' || isDead(p) || p.team === e.team || p.team === 2) continue;
+    if (p.kind === 'projectile' || isDead(p) || p.team === e.team || p.team === 2 || (calm && p.kind === 'player')) continue;
     if (dist(p.pos, e.pos) < r) return true;
   }
   return false;

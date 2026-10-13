@@ -109,6 +109,18 @@ export interface WorldZone {
 
 export const WORLD_SIZE = 672;
 
+/** Bonfires are sanctuaries: no creature spawns or hunts inside this radius (m). */
+export const SAFE_RADIUS = 9;
+const fireCache = new WeakMap<WorldData, Prop[]>();
+/** The bonfire whose sanctuary covers (x, y), if any. */
+export function sanctuaryAt(w: WorldData, x: number, y: number, pad = 0): Prop | null {
+  let fires = fireCache.get(w);
+  if (!fires) fireCache.set(w, (fires = w.props.filter((p) => p.kind === 'bonfire')));
+  const r = SAFE_RADIUS + pad;
+  for (const f of fires) if (Math.abs(f.x - x) < r && Math.abs(f.y - y) < r && Math.hypot(f.x - x, f.y - y) < r) return f;
+  return null;
+}
+
 /** Seed of the shared world (offline play and the default server). */
 export const DEFAULT_WORLD_SEED = 20261012;
 
@@ -690,6 +702,30 @@ export function generateWorld(seed: number, size = WORLD_SIZE): WorldData {
         if (!reachable(x, y) || solidWithin(x, y, 0.6)) continue;
         enemySpawns.push({ x, y, enemyId: 'villager', level: 5, anchor });
         placed++;
+      }
+    }
+    // bonfires are sanctuaries: no monster sleeps near one (wildlife and townsfolk may)
+    const fireProps = props.filter((p) => p.kind === 'bonfire');
+    const tame = new Set(['deer', 'rabbit', 'boar', 'villager']);
+    for (let i = enemySpawns.length - 1; i >= 0; i--) {
+      const sp = enemySpawns[i]!;
+      if (!tame.has(sp.enemyId) && fireProps.some((f) => Math.hypot(f.x - sp.x, f.y - sp.y) < SAFE_RADIUS + 2)) enemySpawns.splice(i, 1);
+    }
+    // a fire out in the wild gets a shelter (a tent on the free side of the logs) and a few animals grazing near it
+    const settled = pois.filter((p) => !p.id.startsWith('zone-') && p.id !== 'lake');
+    for (const f of fireProps) {
+      if (inStructure(f.x, f.y) || settled.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < p.r + 6)) continue;
+      const tx = f.x + Math.cos(5.4) * 2.9;
+      const ty = f.y + Math.sin(5.4) * 2.9;
+      if (reachable(tx, ty) && !solidWithin(tx, ty, 0.6)) addProp({ kind: 'tent', x: tx, y: ty, r: 0.6, size: 1, solid: true, v: life.next() });
+      const z = zoneOf(f.x, f.y);
+      const kind = z.biome === 'ash' ? null : z.biome === 'swamp' ? 'boar' : z.biome === 'snow' ? 'rabbit' : life.chance(0.5) ? 'deer' : 'rabbit';
+      if (!kind) continue;
+      const anchor = { x: f.x + 4.5, y: f.y + 3 };
+      for (let k = 0; k < (kind === 'boar' ? 1 : 2); k++) {
+        const x = anchor.x + life.range(-1.5, 1.5);
+        const y = anchor.y + life.range(-1, 1.5);
+        if (clear(x, y, 0.5)) enemySpawns.push({ x, y, enemyId: kind, level: z.minLevel, anchor });
       }
     }
     // summoning circles: the leader at the head of the sigil, three acolytes around it

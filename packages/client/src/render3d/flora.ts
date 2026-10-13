@@ -5,12 +5,12 @@ import floraUrl from '../assets/flora/flora.webp';
 
 /**
  * Vegetation and small decorations from the Flare tilesets (CC-BY-SA 3.0 — see CREDITS.md):
- * trees, pines, dead trees (snowy in the peaks), tents and tombstones, drawn as one instanced set of
+ * trees, pines, dead trees (snowy in the peaks) and tombstones, drawn as one instanced set of
  * camera-facing quads inside the 3D scene. They write depth like any mesh, so the ASCII pass
  * outlines them and lights/shading read through the glyph ramp. ?flora=0 keeps the 3D models.
  */
 export const FLORA_ON = typeof location === 'undefined' || new URLSearchParams(location.search).get('flora') !== '0';
-export const FLORA_KINDS = new Set<Prop['kind']>(['tree', 'pine', 'deadtree', 'tent', 'grave']);
+export const FLORA_KINDS = new Set<Prop['kind']>(['tree', 'pine', 'deadtree', 'grave']); // tents: 3D A-frames (the Flare tiles carry ground)
 
 export interface FloraUniforms {
   uRight: { value: THREE.Vector3 };
