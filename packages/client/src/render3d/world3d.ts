@@ -38,6 +38,18 @@ function rng(seed: number): () => number {
 }
 
 /** Injects the see-through cut-out into a standard material (shared uniform object). */
+/** Stone, cliffs and buildings write alpha 0.95 so the ASCII pass can paint them pale grey (reference look). */
+function tagStone(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => {
+    prev.call(m, sh, r);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a = 0.95;');
+  };
+  const key = m.customProgramCacheKey.bind(m);
+  m.customProgramCacheKey = () => key() + '|stone';
+  return m;
+}
+
 function seeThrough(m: THREE.MeshStandardMaterial, see: SeeUniforms): THREE.MeshStandardMaterial {
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uSee = see.uSee;
@@ -306,8 +318,8 @@ export function buildWorld3D(world: WorldData): World3D {
   };
   const stoneTex = tex(speckle(world.seed + 2, 0.35, 2));
   const leafTex = tex(speckle(world.seed, 0.55, 3));
-  const rockMat = mat({ color: 0xffffff, roughness: 0.95, map: stoneTex }, true);
-  const stoneMat = mat({ color: 0xffffff, roughness: 0.9, map: stoneTex }, true);
+  const rockMat = tagStone(mat({ color: 0xffffff, roughness: 0.95, map: stoneTex }, true));
+  const stoneMat = tagStone(mat({ color: 0xffffff, roughness: 0.9, map: stoneTex }, true));
   const barkMat = mat({ color: 0x2a2118 }, true);
   const leafMat = mat({ color: 0xffffff, roughness: 0.85, map: leafTex }, true);
   const pineMat = mat({ color: 0xffffff, roughness: 0.85, map: tex(speckle(world.seed + 1, 0.5, 4)) }, true);

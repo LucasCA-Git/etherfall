@@ -1,6 +1,19 @@
 # ETHERFALL — Progresso
 
-_Última atualização: 13/10/2026 · Entrega 14 (0.14)_
+_Última atualização: 13/10/2026 · Entrega 15 (0.15)_
+
+## Novidades da 0.15 — visual de referência (novo padrão)
+- **Personagens fora do filtro ASCII:** heróis, monstros e aldeões vão para uma camada própria (layer 1), renderizada
+  em resolução cheia e desenhada por cima do mundo ASCII como sprite liso e claro, com contorno escuro nítido de 2 px.
+  O mundo (chão, grama, árvores, pedras) continua 100% ASCII.
+- **Células pequenas:** padrão de 6×10 px (≈ 210 colunas em 1280 px).
+- **Paleta curta por camada:** fundo azul-marinho (#0c1220); chão e caminhos em ardósia apagada (#2a3a55), com
+  hachura esparsa quase escondida; grama e copas em verde-menta (#8fbfa0), copas claras e chão escuro (profundidade
+  pelo brilho); pedra, falésias e construções em cinza-claro (#a8b0bc). Fogo, lava, magia e alertas mantêm a cor.
+- **Bordas por Sobel/profundidade** continuam escolhendo `| - / \` pelo ângulo; as folhas das copas trocam de glifo
+  com uma onda de vento ao longo do tempo (além da grama que já balançava).
+- Novo preset **"ASCII referência (padrão)"**; os outros (colorido, mono, contraste…) seguem no menu (Esc → Gráficos,
+  paleta 0–2 volta ao filtro antigo em tudo). Configurações antigas reiniciam no novo padrão.
 
 ## Novidades da 0.14 — kit inicial, selo de invocação e leitura do combate
 - **Kit inicial:** todo herói começa com a arma e a mão secundária da classe e armadura completa (elmo/capuz,

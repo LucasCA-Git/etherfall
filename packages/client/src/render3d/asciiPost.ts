@@ -170,6 +170,7 @@ uniform float uContrast;        // ramp contrast (settings)
 uniform float uDensity;         // glyph density (settings)
 uniform float uDither;          // glyph jitter (settings)
 uniform float uEdges;           // edge strokes + wall/floor glyphs (settings)
+uniform float uStyle;           // 1 = reference palette (navy void, slate ground, mint foliage, pale stone)
 out vec4 o;
 const float PI = 3.14159265;
 float viewDist(ivec2 p, ivec2 lim) {
@@ -228,6 +229,7 @@ void main() {
   float tall = 0.0;
   float an = 0.0;          // characters
   float fn = 0.0;          // foliage (painted trees)
+  float sn = 0.0;          // stone, cliffs, buildings (alpha 0.95)
   for (int y = 0; y < MAXS; y++) {
     if (y >= uSub.y) break;
     for (int x = 0; x < MAXS; x++) {
@@ -253,6 +255,8 @@ void main() {
         an += 1.0;
       } else if (t.a < 0.9) {
         fn += 1.0;
+      } else if (t.a < 0.98) {
+        sn += 1.0;
       }
     }
   }
@@ -265,6 +269,7 @@ void main() {
 
   float glyph;
   vec3 fg;
+  float cat = 3.0; // reference palette: 1 grass, 2 ground, 3 stone, 4 foliage
   if (an > 0.0) {
     // characters are drawn by the fine pass (2× the glyph density); keep a dark gap around them
     glyph = 0.0;
@@ -275,6 +280,7 @@ void main() {
     float bl = luma(bc);
     float ang = 0.5 * atan(bdir.y, bdir.x);
     glyph = strokeGlyph(ang);
+    cat = 1.0;
     float cover = bn / n;
     fg = tint(bc, bl, 0.85, (0.1 + bpeak * 2.4) * (0.55 + 0.45 * cover));
     if (bpeak < 0.015) glyph = 0.0;
@@ -283,6 +289,7 @@ void main() {
     vec3 gc = gsum / gn;
     float gl = luma(gc);
     float isTall = tall / gn;
+    cat = 1.5; // grass ground: the meadow between tufts, kept dim
     float fa = sin(world.x * 0.23 + uTime * 0.15) * 1.6 + cos(world.y * 0.31 - uTime * 0.1) * 1.6;
     float lean = uWind.x * 0.5 + sin(fa) * 0.7 + (rnd - 0.5) * 0.8;
     glyph = rnd < 0.45 + isTall * 0.25 ? strokeGlyph(PI * 0.5 - lean * 0.5) : (rnd < 0.6 ? float(${SPLASH + 1}) : 0.0);
@@ -314,6 +321,7 @@ void main() {
     float edgeBoost = 1.0;
     // world-locked patches (~1.5 m) share one hatching direction, like grain in the reference
     float tilePick = hash12(floor(world / 1.5));
+    cat = fn >= n * 0.4 ? 4.0 : sn >= n * 0.4 ? 3.0 : 2.0;
     if (sf.y > 0.5 && peak > 0.025) {
       // depth break: a crisp outline stroke along the edge of walls, trees and props
       glyph = strokeGlyph(atan(sf.w, sf.z) + PI * 0.5);
@@ -323,7 +331,11 @@ void main() {
       // trunks (dark, vertical) as bars; brightness stays in the colour
       if (density < 0.05) glyph = 0.0;
       else if (n > 3.0 && coherence > 0.6 && strength > 0.03) glyph = strokeGlyph(0.5 * atan(2.0 * jxy, jxx - jyy) + PI * 0.5);
-      else glyph = float(${LEAF_BASE}) + clamp(floor(density * 6.0 + (rnd - 0.5) * 1.5), 0.0, 5.0);
+      else {
+        // leaves rustle: the glyph index drifts with a slow wind wave across the canopy
+        float sway = uStyle > 0.5 ? sin(uTime * 1.6 + world.x * 0.9 + world.y * 0.55) * 0.9 + sin(uTime * 2.7 + world.x * 2.1) * 0.35 : 0.0;
+        glyph = float(${LEAF_BASE}) + clamp(floor(density * 6.0 + (rnd - 0.5) * 1.5 + sway), 0.0, 5.0);
+      }
     } else if (n > 3.0 && strength > (0.045 + lum * 0.25) * (1.6 - uEdges) && coherence > 0.74 && peak > 0.06) {
       // shading edge inside a surface (shadow line, mortar seam)
       glyph = strokeGlyph(0.5 * atan(2.0 * jxy, jxx - jyy) + PI * 0.5);
@@ -334,7 +346,8 @@ void main() {
       // floors: brightness lives in the colour; the glyphs stay strokes. Slanted strokes in
       // world-locked patches, a dash or dot between them, '=' '+' only on the brightest spots.
       float ang = tilePick < 0.42 ? PI * 0.25 : tilePick < 0.84 ? PI * 0.75 : 0.0;
-      if (rnd < min(0.88, 0.3 + density * 0.8)) glyph = strokeGlyph(ang + (rnd - 0.5) * 0.35);
+      if (rnd < (uStyle > 0.5 ? min(0.6, 0.18 + density * 0.55) : min(0.88, 0.3 + density * 0.8))) glyph = strokeGlyph(ang + (rnd - 0.5) * 0.35);
+      else if (uStyle > 0.5 && rnd < 0.8) glyph = rnd < 0.7 ? 0.0 : float(${FLOOR_BASE}) + 1.0;
       else glyph = float(${FLOOR_BASE}) + clamp(floor(density * 6.0 + 0.5), 1.0, 7.0);
     } else if (sc == 2) {
       // walls and trunks: vertical strokes, brackets and bars; '#' 'H' only in strong light
@@ -343,9 +356,25 @@ void main() {
     } else {
       // everything else (props, foliage, water): the density ramp, capped below the heaviest glyphs
       float jitter = (rnd - 0.5) * 2.0 * uDither;
-      glyph = clamp(floor(min(density, 0.85) * (uRampLen - 1.0) + 0.5 + jitter), 1.0, uRampLen - 1.0);
+      glyph = clamp(floor(min(density, uStyle > 0.5 && sn < n * 0.4 ? 0.45 : 0.85) * (uRampLen - 1.0) + 0.5 + jitter), 1.0, uRampLen - 1.0);
     }
     fg = tint(avg, lum, 0.8, (0.16 + peak * 1.7) * (0.8 + 0.2 * uContrast) * edgeBoost);
+  }
+
+  // reference palette: a short, muted set of colours by layer; depth reads from brightness, not hue.
+  // Fire, lava, magic and telegraphs (saturated and bright) keep their own colour.
+  if (uStyle > 0.5 && an == 0.0) {
+    float mx = max(avg.r, max(avg.g, avg.b));
+    float mn = min(avg.r, min(avg.g, avg.b));
+    float sat = (mx - mn) / max(mx, 1e-3);
+    float em = smoothstep(0.5, 0.75, sat) * smoothstep(0.3, 0.55, max(mx, peak));
+    vec3 ref;
+    if (cat < 1.25) ref = vec3(0.561, 0.749, 0.627) * clamp(0.22 + peak * 1.35, 0.0, 1.0);        // grass blades: mint
+    else if (cat < 1.75) ref = vec3(0.561, 0.749, 0.627) * clamp(0.1 + lum * 0.9, 0.0, 0.42);     // meadow floor: dim mint
+    else if (cat < 2.5) ref = vec3(0.165, 0.227, 0.333) * clamp(0.42 + lum * 0.9, 0.0, 0.8);       // ground, paths: slate, almost hidden
+    else if (cat < 3.5) ref = vec3(0.659, 0.69, 0.737) * clamp(0.16 + peak * 1.25, 0.0, 1.0);      // stone, buildings: pale grey
+    else ref = vec3(0.561, 0.749, 0.627) * clamp(0.3 + peak * 1.5, 0.0, 1.0);                      // canopies: bright mint
+    fg = mix(ref, fg, em);
   }
 
   // rain: world-locked falling streaks (sized in meters, so they look the same at any cell size)
@@ -499,7 +528,12 @@ uniform vec2 uScreen;
 uniform float uVignette;
 uniform vec3 uVoid;
 uniform float uFlash;
+uniform float uStyle;         // 1 = characters come from tActors at full resolution, not from glyphs
+uniform sampler2D tActors;    // characters only, rendered at the grid's pixel size (alpha 0 = empty)
+uniform float uExposure;
 out vec4 o;
+vec3 acesC(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+vec3 toSrgbC(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 float glyphAt(sampler2D atlas, float gi, vec2 lc, vec2 cellPx) {
   // cells too small for letters (1–2 px): each cell becomes a dot whose brightness is the glyph's ink
   if (cellPx.x < 3.0 || cellPx.y < 4.0) {
@@ -529,6 +563,27 @@ void main() {
     m = glyphAt(tAtlas, floor(c.a * 255.0 + 0.5), fract(cp), uCell);
   }
   vec3 col = uVoid + c.rgb * 0.04 + c.rgb * m * 0.95;
+  if (uStyle > 0.5) {
+    // characters are not filtered: a smooth, pale sprite with a crisp dark outline over the ASCII world
+    ivec2 alim = textureSize(tActors, 0) - 1;
+    ivec2 ap = clamp(ivec2(p), ivec2(0), alim);
+    vec4 a = texelFetch(tActors, ap, 0);
+    if (a.a > 0.3) {
+      vec3 sc = toSrgbC(acesC(a.rgb * uExposure));
+      float l = dot(sc, vec3(0.299, 0.587, 0.114));
+      col = mix(sc, vec3(0.80, 0.83, 0.88) * (0.42 + 0.8 * l), 0.5);
+    } else {
+      float ring = 0.0;
+      for (int k = 0; k < 8; k++) {
+        float ang = float(k) * 0.785398;
+        for (int r = 1; r <= 2; r++) {
+          ivec2 q2 = clamp(ap + ivec2(round(cos(ang) * float(r)), round(sin(ang) * float(r))), ivec2(0), alim);
+          ring = max(ring, step(0.3, texelFetch(tActors, q2, 0).a));
+        }
+      }
+      if (ring > 0.0) col = vec3(0.015, 0.02, 0.035);
+    }
+  }
   vec2 q = gl_FragCoord.xy / uScreen - 0.5;
   col *= 1.0 - dot(q, q) * uVignette * 1.4;
   col = mix(col, vec3(0.8, 0.85, 1.0), uFlash * 0.5);

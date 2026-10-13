@@ -89,7 +89,12 @@ export interface ActorFrame {
   dither: number;
   /** Strength of edge strokes and wall/floor glyphs. */
   edges: number;
+  /** Reference look: muted layer palette and characters drawn unfiltered over the ASCII world. */
+  styleRef: boolean;
 }
+
+/** Characters live on their own layer so they can skip the ASCII filter (reference look). */
+const ACTOR_LAYER = 1;
 
 interface Slot {
   rig: ActorRig | SpriteRig;
@@ -200,6 +205,8 @@ export class ActorLayer {
   private sceneRT: THREE.WebGLRenderTarget;
   private cellRT: THREE.WebGLRenderTarget;
   private fineRT: THREE.WebGLRenderTarget;
+  /** Characters alone at the grid's pixel size (reference look). */
+  private actorRT: THREE.WebGLRenderTarget;
   private finePass: THREE.Mesh<THREE.PlaneGeometry, THREE.RawShaderMaterial>;
   private cellPass: THREE.Mesh<THREE.PlaneGeometry, THREE.RawShaderMaterial>;
   private composePass: THREE.Mesh<THREE.PlaneGeometry, THREE.RawShaderMaterial>;
@@ -245,6 +252,7 @@ export class ActorLayer {
     this.sceneRT.depthTexture = new THREE.DepthTexture(4, 4, THREE.UnsignedIntType);
     this.cellRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.UnsignedByteType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false });
     this.fineRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.UnsignedByteType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false });
+    this.actorRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true });
     const atlas = buildAsciiAtlas(6, 10);
     this.atlas = atlas.texture;
     this.atlasFine = buildAsciiAtlas(3, 5).texture;
@@ -272,6 +280,7 @@ export class ActorLayer {
       uDensity: { value: 1 },
       uDither: { value: 0.35 },
       uEdges: { value: 0.5 },
+      uStyle: { value: 1 },
     });
     this.finePass = pass(FINE_FS, {
       tScene: { value: this.sceneRT.texture },
@@ -292,6 +301,9 @@ export class ActorLayer {
       uVignette: { value: 0.35 },
       uVoid: { value: new THREE.Vector3(0.028, 0.032, 0.058) },
       uFlash: { value: 0 },
+      uStyle: { value: 1 },
+      tActors: { value: this.actorRT.texture },
+      uExposure: { value: 1.35 },
     });
     this.postScene.add(this.composePass);
     try {
@@ -387,6 +399,7 @@ export class ActorLayer {
       this.sceneRT.setSize(cols * subX, rows * subY);
       this.cellRT.setSize(cols, rows);
       this.fineRT.setSize(cols * fineK, rows * fineK);
+      this.actorRT.setSize(cols * cellW, rows * cellH);
     }
 
     // camera snapped to the character grid; the compose pass shifts by the remainder
@@ -480,6 +493,7 @@ export class ActorLayer {
         s = { rig, unseen: 0, yaw: Math.PI / 2 - e.facing, deadT: 0, block: 0, pose: null };
         this.slots.set(e.id, s);
         for (const m of rig.materials) tagActor(m);
+        rig.root.traverse((o) => o.layers.set(ACTOR_LAYER));
         this.scene.add(rig.root);
       }
       s.unseen = 0;
@@ -491,16 +505,33 @@ export class ActorLayer {
     // 1) scene at subX × subY samples per character cell
     const rr = this.renderer;
     if (RAW) {
+      cam.layers.enable(ACTOR_LAYER);
       rr.setRenderTarget(null);
       rr.toneMapping = THREE.ACESFilmicToneMapping;
       rr.toneMappingExposure = 1.35;
       rr.render(this.scene, cam);
       return;
     }
+    // lights shine on both layers
+    this.scene.traverse((o) => {
+      if ((o as THREE.Light).isLight) o.layers.enable(ACTOR_LAYER);
+    });
     rr.setRenderTarget(this.sceneRT);
     rr.setClearColor(0x000000, 1);
     rr.clear();
+    if (f.styleRef) cam.layers.disable(ACTOR_LAYER);
+    else cam.layers.enable(ACTOR_LAYER);
     rr.render(this.scene, cam);
+    if (f.styleRef) {
+      // 1b) the characters alone, at full resolution, to be laid over the glyphs unfiltered
+      cam.layers.set(ACTOR_LAYER);
+      rr.setRenderTarget(this.actorRT);
+      rr.setClearColor(0x000000, 0);
+      rr.clear();
+      rr.render(this.scene, cam);
+      cam.layers.set(0);
+      rr.setClearColor(0x000000, 1);
+    }
     // 2) one glyph per cell
     const cu = this.cellPass.material.uniforms;
     cu.uView!.value.set(gridLeft, gridBottom, cwm, chm);
@@ -513,6 +544,7 @@ export class ActorLayer {
     cu.uDensity!.value = f.density;
     cu.uDither!.value = f.dither;
     cu.uEdges!.value = f.edges;
+    cu.uStyle!.value = f.styleRef ? 1 : 0;
     (cu.uDepthRange!.value as THREE.Vector2).set(cam.near, cam.far);
     this.postScene.remove(this.composePass);
     this.postScene.add(this.cellPass);
@@ -533,6 +565,10 @@ export class ActorLayer {
     pu.uScreen!.value.set(W, H);
     pu.uVignette!.value = f.vignette;
     pu.uFlash!.value = f.flash;
+    pu.uStyle!.value = f.styleRef ? 1 : 0;
+    // reference look: a deep navy void instead of near-black
+    if (f.styleRef) (pu.uVoid!.value as THREE.Vector3).set(0.047, 0.071, 0.125);
+    else (pu.uVoid!.value as THREE.Vector3).set(0.028, 0.032, 0.058);
     rr.setRenderTarget(null);
     rr.render(this.postScene, this.postCam);
   }
@@ -545,6 +581,7 @@ export class ActorLayer {
     this.sceneRT.dispose();
     this.cellRT.dispose();
     this.fineRT.dispose();
+    this.actorRT.dispose();
     this.finePass.material.dispose();
     this.atlas.dispose();
     this.atlasFine.dispose();

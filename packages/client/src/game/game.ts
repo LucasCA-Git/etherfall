@@ -370,6 +370,7 @@ export class Game {
         density: this.renderer.settings.density,
         dither: this.renderer.settings.dither,
         edges: this.renderer.settings.edgeIntensity,
+        styleRef: this.renderer.settings.palette === 3,
       });
     }
 

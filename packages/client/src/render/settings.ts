@@ -6,7 +6,7 @@ export interface RenderSettings {
   internalRes: number;
   /** Glyph density: >1 fills dark areas with more glyphs, <1 leaves them empty. */
   density: number;
-  /** 0 color, 1 monochrome, 2 high contrast. */
+  /** 0 color, 1 monochrome, 2 high contrast, 3 reference (muted layer palette, unfiltered characters). */
   palette: number;
   contrast: number;
   edgeIntensity: number;
@@ -24,9 +24,15 @@ export interface RenderSettings {
   particleLimit: number;
 }
 
-export type PresetId = 'color' | 'mono' | 'highContrast' | 'cinematic' | 'performance';
+export type PresetId = 'reference' | 'color' | 'mono' | 'highContrast' | 'cinematic' | 'performance';
 
 export const PRESETS: Record<PresetId, { label: string; s: RenderSettings }> = {
+  // 0.15 default: small 6×10 cells, short muted palette by layer (navy void, slate ground, mint foliage, pale stone)
+  // and characters drawn unfiltered over the ASCII world with a crisp outline
+  reference: {
+    label: 'ASCII referência (padrão)',
+    s: { cellSize: 10, internalRes: 2, density: 1, palette: 3, contrast: 1.2, edgeIntensity: 0.8, glow: 1, renderDistance: 36, grain: 0, lodDistance: 26, dither: 0.3, animSpeed: 1, bgLevel: 0.1, vignette: 0.3, particleLimit: 1500 },
+  },
   color: {
     label: 'ASCII colorido',
     s: { cellSize: 8, internalRes: 2, density: 1, palette: 0, contrast: 1.2, edgeIntensity: 0.5, glow: 1, renderDistance: 34, grain: 0.04, lodDistance: 26, dither: 0.35, animSpeed: 1, bgLevel: 0.14, vignette: 0.35, particleLimit: 1500 },
@@ -53,7 +59,7 @@ export const SETTING_RANGES: Record<keyof RenderSettings, { min: number; max: nu
   cellSize: { min: 1, max: 18, step: 1, label: 'Tamanho das células em px (7–9 = equilíbrio; 12+ = letras grandes; 1 = um ponto)' },
   internalRes: { min: 1, max: 4, step: 1, label: 'Resolução interna' },
   density: { min: 0.5, max: 1.6, step: 0.05, label: 'Densidade de caracteres' },
-  palette: { min: 0, max: 2, step: 1, label: 'Paleta (cor / mono / contraste)' },
+  palette: { min: 0, max: 3, step: 1, label: 'Paleta (cor / mono / contraste / referência)' },
   contrast: { min: 0.6, max: 2, step: 0.05, label: 'Contraste' },
   edgeIntensity: { min: 0, max: 1.5, step: 0.05, label: 'Intensidade dos contornos' },
   glow: { min: 0, max: 2.5, step: 0.05, label: 'Brilho de magia' },
@@ -68,7 +74,7 @@ export const SETTING_RANGES: Record<keyof RenderSettings, { min: number; max: nu
 };
 
 export function loadSettings(): RenderSettings {
-  const base = { ...PRESETS.color.s };
+  const base = { ...PRESETS.reference.s };
   try {
     const raw = localStorage.getItem('etherfall.render');
     if (raw) {
@@ -78,6 +84,8 @@ export function loadSettings(): RenderSettings {
         delete parsed.cellSize;
         delete parsed.contrast;
       }
+      // 0.15: the reference look becomes the default; older tweaks start over from it
+      if ((parsed.v ?? 1) < 4) for (const k of Object.keys(parsed)) delete (parsed as Record<string, unknown>)[k];
       for (const k of Object.keys(base) as (keyof RenderSettings)[]) {
         const v = parsed[k];
         const range = SETTING_RANGES[k];
@@ -92,7 +100,7 @@ export function loadSettings(): RenderSettings {
 
 export function saveSettings(s: RenderSettings): void {
   try {
-    localStorage.setItem('etherfall.render', JSON.stringify({ ...s, v: 3 }));
+    localStorage.setItem('etherfall.render', JSON.stringify({ ...s, v: 4 }));
   } catch {
     /* ignore */
   }
