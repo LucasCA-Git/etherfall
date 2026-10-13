@@ -16,6 +16,8 @@ import { bonfireSeats } from '../world/worldgen';
 import { statusMoveMul } from '../combat/statuses';
 import type { SimContext } from '../sim/context';
 import { Btn, DT, type Entity } from '../sim/types';
+import { say, villagerLine } from '../sim/living';
+import { angleTo } from '../math/vec2';
 
 const BONFIRE_RANGE = 1.9;
 
@@ -62,7 +64,7 @@ export function updatePlayer(ctx: SimContext, e: Entity): void {
     e.action = null;
     if (pressed & Btn.Interact) return;
   }
-  if (pressed & Btn.Interact && !e.action && !tryPortal(ctx, e) && !tryChest(ctx, e)) tryRest(ctx, e);
+  if (pressed & Btn.Interact && !e.action && !tryPortal(ctx, e) && !tryChest(ctx, e) && !tryTalk(ctx, e)) tryRest(ctx, e);
 
   if (e.action) {
     const def = getAction(e.action.id);
@@ -177,6 +179,32 @@ function tryChest(ctx: SimContext, e: Entity): boolean {
   return fire ? false : ctx.openChest(e, best.id);
 }
 export const CHEST_RANGE = 1.6;
+export const TALK_RANGE = 2.4;
+
+/** Speak to the nearest villager in reach: they stop, turn and answer. */
+function tryTalk(ctx: SimContext, e: Entity): boolean {
+  let best: Entity | null = null;
+  let bd = TALK_RANGE;
+  for (const o of ctx.entities.values()) {
+    if (o.enemyId !== 'villager' || isDead(o)) continue;
+    const d = Math.hypot(o.pos.x - e.pos.x, o.pos.y - e.pos.y);
+    if (d < bd) {
+      bd = d;
+      best = o;
+    }
+  }
+  if (!best) return false;
+  const bonfire = ctx.world.props.some((p) => p.kind === 'bonfire' && Math.hypot(p.x - e.pos.x, p.y - e.pos.y) < bd);
+  if (bonfire) return false;
+  best.facing = angleTo(best.pos, e.pos);
+  best.vel.x = best.vel.y = 0;
+  if (best.ai) {
+    best.ai.wanderTo = null;
+    best.ai.pauseUntil = ctx.tick + 150;
+  }
+  say(ctx, best, villagerLine(best, ctx.tick), 150);
+  return true;
+}
 
 function tryRest(ctx: SimContext, e: Entity): void {
   for (const p of ctx.world.props) {

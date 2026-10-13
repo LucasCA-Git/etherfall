@@ -316,6 +316,8 @@ export function buildWorld3D(world: WorldData): World3D {
   const emberMat = mat({ color: 0x1a0a04, emissive: 0xff4a10, emissiveIntensity: 1.6 });
   const logMat = mat({ color: 0x24170e });
   const ironMat = mat({ color: 0x1a1a1e, metalness: 0.6, roughness: 0.5 });
+  const runeMat = mat({ color: 0x220000, emissive: 0xff2a10, emissiveIntensity: 2.4 });
+  const waxMat = mat({ color: 0xcfc6b0, roughness: 0.7 });
 
   // cliffs: one block per rock tile, taller deep inside rock masses
   const isRock = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || world.tiles[y * W + x] === Tile.Rock;
@@ -496,6 +498,31 @@ export function buildWorld3D(world: WorldData): World3D {
         B.add('wall', box, stoneMat, ch, { x: cx, y: 0.55, z: cz, sx: 0.92, sy: 0.16, sz: 0.57, ry: 0, c: wood });
         for (const ox of [-0.3, 0.3]) B.add('wall', box, stoneMat, ch, { x: cx + ox, y: 0.33, z: cz, sx: 0.08, sy: 0.66, sz: 0.6, ry: 0, c: band }, false);
         B.add('wall', box, stoneMat, ch, { x: cx, y: 0.42, z: cz + 0.29, sx: 0.12, sy: 0.14, sz: 0.04, ry: 0, c: band }, false);
+        break;
+      }
+      case 'ritual': {
+        // summoning circle: a glowing ring and pentagram burnt into the ground, candles at the points, an altar
+        const R = p.size;
+        const at = (a: number, rr: number) => ({ x: cx + Math.cos(a) * rr, z: cz + Math.sin(a) * rr * ZS });
+        const seg = (a: { x: number; z: number }, b: { x: number; z: number }, w: number) => {
+          const dx = b.x - a.x;
+          const dz = b.z - a.z;
+          B.add('rune', box, runeMat, ch, { x: (a.x + b.x) / 2, y: 0.025, z: (a.z + b.z) / 2, sx: Math.hypot(dx, dz) + w * 0.5, sy: 0.03, sz: w, ry: Math.atan2(-dz, dx) }, false);
+        };
+        const N = 36;
+        for (let i = 0; i < N; i++) seg(at((i / N) * Math.PI * 2, R), at(((i + 1) / N) * Math.PI * 2, R), 0.09);
+        for (let i = 0; i < N; i++) seg(at((i / N) * Math.PI * 2, R * 0.86), at(((i + 1) / N) * Math.PI * 2, R * 0.86), 0.05);
+        const star = (i: number) => at(-Math.PI / 2 + (i * Math.PI * 2) / 5, R * 0.86);
+        for (let i = 0; i < 5; i++) seg(star(i), star(i + 2), 0.08);
+        for (let i = 0; i < 5; i++) {
+          const c = at(-Math.PI / 2 + (i * Math.PI * 2) / 5, R + 0.35);
+          const h = 0.25 + r() * 0.2;
+          B.add('wax', cyl8, waxMat, ch, { x: c.x, y: h / 2, z: c.z, sx: 0.07, sy: h, sz: 0.07, ry: 0 }, false);
+          B.add('flame', sphere, fireMat, ch, { x: c.x, y: h + 0.07, z: c.z, sx: 0.045, sy: 0.09, sz: 0.045, ry: 0 }, false);
+        }
+        B.add('wall', box, stoneMat, ch, { x: cx, y: 0.3, z: cz, sx: 0.9, sy: 0.6, sz: 0.55, ry: 0, c: new THREE.Color(0.06, 0.05, 0.05) });
+        B.add('boulder', ico, stoneMat, ch, { x: cx, y: 0.7, z: cz, sx: 0.13, sy: 0.12, sz: 0.14, ry: 0, c: new THREE.Color(0.4, 0.37, 0.32) }, false);
+        B.add('rune', sphere, runeMat, ch, { x: cx, y: 0.62, z: cz + 0.05, sx: 0.3, sy: 0.02, sz: 0.2, ry: 0 }, false);
         break;
       }
       case 'torch': {

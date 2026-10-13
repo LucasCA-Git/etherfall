@@ -49,7 +49,7 @@ export function createEnemy(id: number, enemyId: string, pos: Vec2, tick: number
   const d = getEnemy(enemyId);
   const e = base(id, 'enemy', d.name, pos, tick);
   e.enemyId = enemyId;
-  e.team = 1;
+  e.team = d.team ?? 1;
   e.level = Math.max(1, Math.min(60, Math.round(level)));
   e.radius = d.radius;
   e.mass = d.mass;

@@ -852,6 +852,81 @@ export interface WolfRig {
   jaw: THREE.Group;
   tail: THREE.Group;
   legs: WolfLeg[];
+  /** Body height at rest (the wolf stands at 0.72). */
+  bodyY?: number;
+  variant?: BeastVariant;
+}
+
+export type BeastVariant = 'deer' | 'boar' | 'rabbit';
+
+/**
+ * Wildlife (0.13) on the wolf skeleton (body, head, jaw, tail, four two-bone legs), so the same gait,
+ * death fall and attack poses drive it: a slender deer with antlers, a stocky tusked boar, a small hare.
+ */
+export function buildBeast(variant: BeastVariant): WolfRig {
+  const hide = std({ color: variant === 'deer' ? 0x8a5a32 : variant === 'boar' ? 0x3e2c22 : 0x8c7f6c, roughness: 0.9, map: noiseTex(variant === 'deer' ? '#a06a3c' : variant === 'boar' ? '#4a3626' : '#a39682', 0.3, 31, 128, true) });
+  const pale = std({ color: 0xd8cbb0, roughness: 0.85 });
+  const horn = std({ color: 0xcdbb94, roughness: 0.6 });
+  const black = std({ color: 0x111111, roughness: 0.4 });
+  const root = new THREE.Group();
+  const legs: WolfLeg[] = [];
+  const P = variant === 'deer'
+    ? { bodyY: 1.0, len: 0.8, r: 0.24, thigh: 0.48, shin: 0.48, legR: 0.055, hipX: 0.13, hipZ: 0.36, neck: [0.5, 0.45], head: 0.13 }
+    : variant === 'boar'
+      ? { bodyY: 0.55, len: 0.75, r: 0.33, thigh: 0.26, shin: 0.24, legR: 0.07, hipX: 0.17, hipZ: 0.36, neck: [0.18, 0.55], head: 0.2 }
+      : { bodyY: 0.62, len: 0.5, r: 0.26, thigh: 0.3, shin: 0.3, legR: 0.07, hipX: 0.14, hipZ: 0.26, neck: [0.25, 0.42], head: 0.18 };
+  const body = group(root, 0, P.bodyY, 0);
+  body.add(mesh(new THREE.CapsuleGeometry(P.r, P.len, 6, 14), hide, 0, 0, 0, { rx: Math.PI / 2, s: variant === 'boar' ? [1, 1.15, 1] : [1, 1, 1] }));
+  if (variant === 'boar') for (let i = 0; i < 6; i++) body.add(mesh(new THREE.ConeGeometry(0.035, 0.16, 5), black, 0, P.r * 1.12, 0.35 - i * 0.13, { rx: -0.3 }));
+  if (variant === 'deer') body.add(mesh(sph(0.2, 10, 8), pale, 0, -0.05, -0.5, { s: [0.8, 0.8, 0.5] })); // white rump
+  body.add(limb([0, 0.05, P.len * 0.5], [0, P.neck[0]!, P.neck[1]! + P.len * 0.5], P.r * 0.55, P.r * 0.4, hide));
+  const head = group(body, 0, P.neck[0]!, P.neck[1]! + P.len * 0.5);
+  head.add(mesh(sph(P.head, 12, 10), hide, 0, 0, 0, { s: variant === 'boar' ? [1, 0.9, 1.2] : [1, 1, 1.1] }));
+  const snoutL = variant === 'deer' ? 0.24 : variant === 'boar' ? 0.26 : 0.1;
+  head.add(mesh(new THREE.ConeGeometry(P.head * 0.6, snoutL, 10), hide, 0, -0.03, P.head + snoutL * 0.35, { rx: Math.PI / 2 }));
+  head.add(mesh(sph(variant === 'boar' ? 0.07 : 0.03, 8, 6), black, 0, -0.03, P.head + snoutL * 0.8, { s: [1, 0.8, 0.5] }));
+  for (const sd of [-1, 1]) {
+    head.add(mesh(sph(0.022, 6, 5), black, sd * P.head * 0.65, 0.04, P.head * 0.6));
+    if (variant === 'rabbit') head.add(mesh(new THREE.CapsuleGeometry(0.045, 0.28, 4, 8), hide, sd * 0.07, 0.26, -0.03, { rz: sd * 0.15, rx: -0.25 }));
+    else head.add(mesh(new THREE.ConeGeometry(0.05, 0.13, 8), hide, sd * P.head * 0.8, P.head * 0.8, -0.02, { rz: -sd * 0.6 }));
+    if (variant === 'deer') {
+      // branching antlers
+      head.add(limb([sd * 0.06, 0.1, 0], [sd * 0.2, 0.42, -0.08], 0.022, 0.016, horn));
+      head.add(limb([sd * 0.12, 0.24, -0.04], [sd * 0.1, 0.42, 0.1], 0.016, 0.01, horn));
+      head.add(limb([sd * 0.18, 0.36, -0.07], [sd * 0.3, 0.52, -0.02], 0.014, 0.009, horn));
+    }
+    if (variant === 'boar') head.add(mesh(new THREE.ConeGeometry(0.025, 0.14, 6), horn, sd * 0.09, -0.06, P.head + 0.12, { rx: -0.6, rz: sd * 0.3 }));
+  }
+  const jaw = group(head, 0, -P.head * 0.5, 0.02);
+  jaw.add(mesh(new THREE.ConeGeometry(P.head * 0.4, snoutL * 0.8, 8), hide, 0, -0.02, P.head * 0.9, { rx: Math.PI / 2, s: [1, 0.5, 1] }));
+  const tail = group(body, 0, 0.06, -P.len * 0.5 - P.r * 0.8);
+  if (variant === 'rabbit') tail.add(mesh(sph(0.09, 8, 6), pale));
+  else tail.add(mesh(new THREE.ConeGeometry(variant === 'deer' ? 0.06 : 0.025, variant === 'deer' ? 0.16 : 0.22, 6), variant === 'deer' ? pale : hide, 0, -0.06, -0.06, { rx: -2.3 }));
+  const spots: Array<[number, number, boolean, number]> = [
+    [P.hipX, P.hipZ, true, Math.PI * 0.35],
+    [-P.hipX, P.hipZ, true, 0],
+    [P.hipX, -P.hipZ, false, Math.PI * 1.35],
+    [-P.hipX, -P.hipZ, false, Math.PI],
+  ];
+  for (const [x, z, front, off] of spots) {
+    const hip = group(body, x, -P.r * 0.3, z);
+    hip.add(hang(P.thigh, P.legR * (front ? 1 : 1.4), P.legR * 0.8, hide));
+    const knee = group(hip, 0, -P.thigh, 0);
+    knee.add(hang(P.shin, P.legR * 0.8, P.legR * 0.6, hide));
+    knee.add(mesh(sph(P.legR * 0.9, 6, 5), variant === 'rabbit' ? hide : black, 0, -P.shin, 0.02, { s: [1, 0.6, 1.4] }));
+    legs.push({ hip, knee, front, off });
+  }
+  if (variant === 'rabbit') root.scale.setScalar(0.42);
+  const materials: THREE.MeshStandardMaterial[] = [];
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    m.castShadow = true;
+    const mat = m.material as THREE.MeshStandardMaterial;
+    if (!materials.includes(mat)) materials.push(mat);
+  });
+  for (const mat of [hide, pale, horn, black]) if (!materials.includes(mat)) mat.dispose();
+  return { type: 'wolf', materials, root, body, head, jaw, tail, legs, bodyY: P.bodyY, variant };
 }
 
 export function buildWolf(): WolfRig {

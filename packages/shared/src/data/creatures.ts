@@ -76,6 +76,52 @@ export const CREATURE_ENEMIES: Record<string, EnemyDef> = {
     ],
     attackCooldown: [32, 64], respawnTicks: 30 * 200,
   },
+  // ---------- wildlife (team 2: grazes, flees; everyone may hunt it) ----------
+  deer: {
+    id: 'deer', name: 'Cervo', hp: 70, poise: 10, radius: 0.42, mass: 1.2, speed: 6.4, aggroRange: 0, leashRange: 40,
+    preferredDist: 0, xp: 12, absorb: { physical: 0, arcane: 0 }, attacks: [], attackCooldown: [60, 90], respawnTicks: 30 * 60,
+    behavior: 'passive', team: 2, fleeRange: 9,
+  },
+  rabbit: {
+    id: 'rabbit', name: 'Coelho', hp: 20, poise: 2, radius: 0.22, mass: 0.3, speed: 6.0, aggroRange: 0, leashRange: 30,
+    preferredDist: 0, xp: 4, absorb: { physical: 0, arcane: 0 }, attacks: [], attackCooldown: [60, 90], respawnTicks: 30 * 40,
+    behavior: 'passive', team: 2, fleeRange: 6,
+  },
+  boar: {
+    id: 'boar', name: 'Javali', hp: 160, poise: 50, radius: 0.45, mass: 2, speed: 5.0, aggroRange: 0, leashRange: 24,
+    preferredDist: 1.2, xp: 30, absorb: { physical: 0.1, arcane: 0 },
+    attacks: [{ action: 'boar_gore', weight: 3, minRange: 0, maxRange: 1.3 }, { action: 'boar_charge', weight: 1.5, minRange: 2, maxRange: 6 }],
+    attackCooldown: [24, 50], respawnTicks: 30 * 60, behavior: 'passive', team: 2, fleeRange: 4,
+  },
+  // ---------- villagers (the players' side) ----------
+  villager: {
+    id: 'villager', name: 'Aldeão', hp: 120, poise: 10, radius: 0.36, mass: 1, speed: 3.8, aggroRange: 0, leashRange: 30,
+    preferredDist: 0, xp: 0, absorb: { physical: 0, arcane: 0 }, attacks: [], attackCooldown: [60, 90], respawnTicks: 30 * 30,
+    behavior: 'villager', team: 0, fleeRange: 8,
+  },
+  // ---------- the Abyss cult and what it calls ----------
+  cultist: {
+    id: 'cultist', name: 'Cultista do Abismo', hp: 140, poise: 25, radius: 0.38, mass: 1, speed: 3.6, aggroRange: 6, leashRange: 22,
+    preferredDist: 5, xp: 60, absorb: { physical: 0, arcane: 0.15 },
+    attacks: [{ action: 'cult_bolt', weight: 3, minRange: 1.5, maxRange: 10 }, { action: 'cult_hex', weight: 1, minRange: 1.5, maxRange: 9 }, { action: 'goblin_stab', weight: 1, minRange: 0, maxRange: 1.2 }],
+    attackCooldown: [28, 56], respawnTicks: 30 * 300, behavior: 'cultist',
+  },
+  cult_leader: {
+    id: 'cult_leader', name: 'Arauto do Abismo', hp: 320, poise: 60, radius: 0.42, mass: 1.3, speed: 3.6, aggroRange: 6, leashRange: 22,
+    preferredDist: 5, xp: 160, absorb: { physical: 0.05, arcane: 0.25 },
+    attacks: [{ action: 'cult_bolt', weight: 2, minRange: 1.5, maxRange: 10 }, { action: 'demon_fire', weight: 1, minRange: 1, maxRange: 9 }, { action: 'cult_hex', weight: 1, minRange: 1.5, maxRange: 9 }],
+    attackCooldown: [26, 52], respawnTicks: 30 * 300, behavior: 'cultist',
+  },
+  demon: {
+    id: 'demon', name: 'Demônio do Abismo', hp: 2600, poise: 280, radius: 1.1, mass: 14, speed: 4.4, aggroRange: 16, leashRange: 30,
+    preferredDist: 2, xp: 900, absorb: { physical: 0.2, arcane: 0.2 },
+    attacks: [
+      { action: 'demon_cleave', weight: 3, minRange: 0, maxRange: 2.4 },
+      { action: 'demon_fire', weight: 1.5, minRange: 1, maxRange: 10 },
+      { action: 'demon_roar', weight: 1, minRange: 0, maxRange: 3 },
+    ],
+    attackCooldown: [30, 60], respawnTicks: 0,
+  },
   cursed_grave: {
     id: 'cursed_grave', name: 'Túmulo Amaldiçoado', hp: 420, poise: 9999, radius: 0.7, mass: 999, speed: 0, aggroRange: 10, leashRange: 12,
     preferredDist: 0, xp: 130, absorb: { physical: 0.3, arcane: -0.2 },
@@ -185,6 +231,38 @@ export const CREATURE_ACTIONS: ActionDef[] = [
   {
     id: 'wyvern_dash', name: 'Mergulho Gélido', startup: 22, active: 9, recovery: 26, moveMul: 0, lunge: { speed: 13, from: 22, to: 31 }, trackUntil: 18, turnRate: deg(9), telegraph: 'danger', hyperArmor: [0, 34],
     hit: { range: 1.8, arc: deg(80), damage: 95, poise: 100, knockback: 8, scaling: {}, type: 'physical', parryable: false, once: true },
+  },
+  // ---------- wildlife ----------
+  { id: 'graze', name: 'Pastando', startup: 0, active: 0, recovery: 90, moveMul: 0 },
+  {
+    id: 'boar_gore', name: 'Chifrada', startup: 12, active: 3, recovery: 16, moveMul: 0.1, lunge: { speed: 5, from: 9, to: 13 }, trackUntil: 9, turnRate: deg(16), telegraph: 'normal',
+    hit: { range: 1.2, arc: deg(60), damage: 28, poise: 30, knockback: 4, scaling: {}, type: 'physical', parryable: true },
+  },
+  {
+    id: 'boar_charge', name: 'Investida do Javali', startup: 18, active: 8, recovery: 20, moveMul: 0, lunge: { speed: 11, from: 18, to: 26 }, trackUntil: 15, turnRate: deg(10), telegraph: 'danger',
+    hit: { range: 1.0, arc: deg(70), damage: 40, poise: 60, knockback: 7, scaling: {}, type: 'physical', parryable: false, once: true },
+  },
+  // ---------- the Abyss cult ----------
+  { id: 'ritual_chant', name: 'Cântico', anim: 'castSky', startup: 0, active: 0, recovery: 60, moveMul: 0 },
+  {
+    id: 'cult_bolt', name: 'Chama Profana', anim: 'cast', startup: 16, active: 1, recovery: 16, moveMul: 0, trackUntil: 13, turnRate: deg(16), telegraph: 'normal', element: 'fire',
+    projectile: proj('imp_fire', 13, 0.26, 40, 26, 'arcane', { status: { id: 'burn', ticks: 75, power: 7 } }),
+  },
+  {
+    id: 'cult_hex', name: 'Marca do Abismo', anim: 'cast', startup: 20, active: 1, recovery: 20, moveMul: 0, trackUntil: 16, turnRate: deg(14), telegraph: 'normal', element: 'shadow',
+    projectile: proj('shadow_bolt', 11, 0.26, 42, 16, 'arcane', { status: { id: 'curse', ticks: 120, power: 8 } }),
+  },
+  {
+    id: 'demon_cleave', name: 'Garra Infernal', startup: 18, active: 4, recovery: 22, moveMul: 0, lunge: { speed: 5, from: 14, to: 19 }, trackUntil: 14, turnRate: deg(10), telegraph: 'normal', hyperArmor: [0, 24], element: 'fire',
+    hit: { range: 2.4, arc: deg(100), damage: 95, poise: 90, knockback: 7, scaling: {}, type: 'physical', parryable: false, status: { id: 'burn', ticks: 90, power: 10 } },
+  },
+  {
+    id: 'demon_fire', name: 'Chuva de Enxofre', anim: 'castSky', startup: 26, active: 1, recovery: 28, moveMul: 0, trackUntil: 20, turnRate: deg(10), telegraph: 'danger', element: 'fire',
+    strikes: { count: 4, dist: 4.5, spread: 2.2, radius: 1.5, delay: 26, interval: 8, hit: { range: 1.5, arc: Math.PI, damage: 60, poise: 40, knockback: 4, scaling: {}, type: 'arcane', parryable: false, status: { id: 'burn', ticks: 90, power: 9 } } },
+  },
+  {
+    id: 'demon_roar', name: 'Rugido do Abismo', anim: 'shout', startup: 22, active: 2, recovery: 26, moveMul: 0, telegraph: 'danger', hyperArmor: [0, 28], shockwave: 3.2,
+    hit: { range: 3.2, arc: Math.PI * 2, damage: 50, poise: 80, knockback: 8, scaling: {}, type: 'arcane', parryable: false, once: true, status: { id: 'slow', ticks: 75, power: 0.45 } },
   },
   // ---------- cursed grave ----------
   {

@@ -6,7 +6,7 @@ import type { Light } from '../render/renderer';
 import { PITCH, SIN_P, buildWorld3D, type World3D } from './world3d';
 import { buildSprite, disposeSprite, lookFor, poseSprite, spriteKey, type SpriteRig } from './sprites3d';
 import { CELL_FS, COMPOSE_FS, FINE_FS, FULL_VS, buildAsciiAtlas } from './asciiPost';
-import { buildHumanoid, buildSpider, buildWolf, disposeRig, setSegment, type ActorRig, type HumanKind, type HumanRig, type SpiderRig, type WolfRig } from './models3d';
+import { buildBeast, buildHumanoid, buildSpider, buildWolf, disposeRig, setSegment, type ActorRig, type HumanKind, type HumanRig, type SpiderRig, type WolfRig } from './models3d';
 
 /**
  * The whole game view as one 3D scene (world + articulated actors) rendered through a fine ASCII
@@ -25,6 +25,10 @@ const POINT_LIGHTS = 8;
 /** Screen-space height (meters above the feet) for names / health bars over a 3D actor. */
 export function headOffset(e: EntitySnap): number {
   if (e.enemyId === 'ashwolf') return 1.15;
+  if (e.enemyId === 'deer') return 1.9;
+  if (e.enemyId === 'boar') return 1.1;
+  if (e.enemyId === 'rabbit') return 0.6;
+  if (e.enemyId === 'demon') return 4.4;
   if (e.enemyId === 'giantspider') return 2.6;
   if (e.enemyId === 'bonegiant') return 4.1;
   if (e.enemyId === 'voidguard') return 3.1;
@@ -141,6 +145,7 @@ function kindOf(e: EntitySnap): 'wolf' | 'spider' | HumanKind {
   if (e.enemyId === 'imp') return 'imp';
   if (e.enemyId === 'voidguard') return 'voidguard';
   if (e.enemyId === 'spiritwolf' || e.enemyId === 'felhound') return 'wolf';
+  if (e.enemyId === 'deer' || e.enemyId === 'boar' || e.enemyId === 'rabbit') return 'wolf';
   if (e.enemyId === 'phantom') return 'rogue';
   return 'skeleton'; // hollow, ancestor
 }
@@ -470,7 +475,8 @@ export class ActorLayer {
         s = undefined;
       }
       if (!s) {
-        const rig = look ? buildSprite(look) : k0 === 'wolf' ? buildWolf() : k0 === 'spider' ? buildSpider() : buildHumanoid(k0);
+        const beast = e.enemyId === 'deer' || e.enemyId === 'boar' || e.enemyId === 'rabbit' ? e.enemyId : null;
+        const rig = look ? buildSprite(look) : beast ? buildBeast(beast) : k0 === 'wolf' ? buildWolf() : k0 === 'spider' ? buildSpider() : buildHumanoid(k0);
         s = { rig, unseen: 0, yaw: Math.PI / 2 - e.facing, deadT: 0, block: 0, pose: null };
         this.slots.set(e.id, s);
         for (const m of rig.materials) tagActor(m);
@@ -741,22 +747,25 @@ export class ActorLayer {
   private poseWolf(r: WolfRig, s: Slot, e: EntitySnap, anim: AnimState, f: ActorFrame, a: ReturnType<typeof actPhase>): void {
     const run = Math.min(1, anim.speed / 5);
     const ph = anim.phase * 1.25;
-    const lunge = a.id === 'wolf_lunge';
+    const lunge = a.id === 'wolf_lunge' || a.id === 'boar_charge';
     const crouch = lunge && a.stage === 'windup' ? 0.16 * a.k : 0;
     const leap = lunge && a.stage === 'active' ? Math.sin(a.k * Math.PI) * 0.35 : 0;
-    const bite = a.id === 'wolf_bite' && a.stage === 'active';
+    const bite = (a.id === 'wolf_bite' || a.id === 'boar_gore') && a.stage === 'active';
     const bob = Math.abs(Math.sin(ph)) * 0.05 * run;
     const dk = smooth(s.deadT);
-    r.body.position.y = 0.72 - crouch + leap + bob - dk * 0.42;
+    const graze = a.id === 'graze' && !e.dead ? Math.min(1, a.k * 4, (1 - a.k) * 4) : 0;
+    const by = r.bodyY ?? 0.72;
+    r.body.position.y = by - crouch + leap + bob - dk * by * 0.58;
     r.body.rotation.z = (Math.PI / 2) * dk;
-    r.body.rotation.x = -leap * 0.4 + crouch * 0.8;
+    r.body.rotation.x = -leap * 0.4 + crouch * 0.8 + graze * 0.12;
     for (const L of r.legs) {
       const sw = e.dead ? 0.4 : Math.sin(ph + L.off) * 0.75 * run + (crouch ? 0.4 : 0) + (leap ? (L.front ? 0.9 : -0.9) : 0);
       const bend = (L.front ? -1 : 1) * (0.35 + Math.max(0, Math.sin(ph + L.off + 1.2)) * 0.8 * run);
       L.hip.rotation.x = -sw;
       L.knee.rotation.x = -bend;
     }
-    r.head.rotation.x = crouch * 2 - leap * 0.5;
+    // grazing: head down to the grass, a nibble now and then
+    r.head.rotation.x = crouch * 2 - leap * 0.5 + graze * (1.25 + Math.sin(f.time * 7 + e.id) * 0.08);
     r.jaw.rotation.x = bite ? 0.55 : a.stage === 'windup' && (a.id === 'wolf_bite' || lunge) ? 0.3 * a.k : 0.04;
     r.tail.rotation.y = e.dead ? 0 : Math.sin(f.time * 6) * 0.3;
     r.tail.rotation.x = -0.2 * run;

@@ -85,7 +85,7 @@ npm run build:single   # gera o HTML único packages/client/dist/etherfall.html
 | Esquiva (invulnerável por um instante) | Espaço |
 | Correr | Shift |
 | Habilidades da classe | **Q, E, 1, 2, 3, 4** (e **R** para o Bruxo) |
-| Sentar na fogueira / usar portal / abrir baú | **F** |
+| Sentar na fogueira / usar portal / abrir baú / falar com aldeões | **F** |
 | Inventário (equipar, desequipar, largar, imbuir com runas) | **I** |
 | Ficha de atributos | **C** |
 | Árvore de habilidades | **K** |
@@ -204,6 +204,7 @@ Um continente de 672 × 672 m em **8 regiões por nível** (mapa com **M**), lig
 | Fortaleza do Juramento | 34–45 | segundo castelo → Forja Afundada |
 
 As criaturas têm nível (o nome mostra "Nv", em laranja/vermelho quando são perigosas para você); vida, dano e XP crescem com ele. Há fogueiras em todas as regiões e no meio das estradas, e ~100 baús com itens do nível da região. Portais de masmorra não funcionam se você levou dano nos últimos 3 s.
+- **Mundo vivo:** cervos, coelhos e javalis andam em bandos, pastam e fogem (chegue andando para não espantá-los; o javali revida). Aldeões passeiam por Pedravelha e conversam com **F**. Em quatro **Círculos de Invocação** cultistas recitam um ritual quando você se aproxima — mate o **Arauto do Abismo** antes que o cântico termine, ou enfrente o **Demônio do Abismo**.
 - **Clima:** começa seco e chove cerca de 30% do tempo, quase sempre garoa; tempestades com raios são raras. Os ciclos de dia e noite são iguais para todos no servidor.
 
 ---
@@ -234,7 +235,7 @@ Variáveis de ambiente (opcionais):
 ## 8. Desenvolvimento
 
 ```bash
-npm test                 # 154 testes: simulação, combate, talentos, invocações, saves, contas, servidor WebSocket
+npm test                 # 160 testes: simulação, combate, talentos, invocações, saves, contas, servidor WebSocket
 npm run build && npm run e2e   # E2E no Chromium: classes, fogueira, talentos, login online, saves offline
 ```
 O E2E precisa de um Chromium. Use `CHROMIUM_PATH=/caminho/chrome` ou `npx playwright install chromium`.

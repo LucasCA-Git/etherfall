@@ -23,7 +23,8 @@ describe('0.10 Flare creatures', () => {
   });
 
   it('each creature fights a player: attacks start, resolve and do something', () => {
-    for (const id of Object.keys(CREATURE_ENEMIES)) {
+    // wildlife and villagers don't pick fights (0.13 tests cover them)
+    for (const id of Object.keys(CREATURE_ENEMIES).filter((k) => CREATURE_ENEMIES[k]!.behavior !== 'passive' && CREATURE_ENEMIES[k]!.behavior !== 'villager')) {
       const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
       const p = sim.addPlayer('Alvo', 'vanguard', { x: 20, y: 20 });
       p.hp = p.maxHp = 1e6;

@@ -7,7 +7,7 @@ import { buildCastle, buildDungeon, buildGoblinCamp, buildGraveyard, buildLair, 
 /** `chest`: size = tier (0 wood, 1 iron, 2 gold). */
 export type PropKind =
   | 'tree' | 'pine' | 'rock' | 'ruinWall' | 'pillar' | 'bonfire' | 'bush' | 'castleWall' | 'tower' | 'torch' | 'chest'
-  | 'deadtree' | 'house' | 'well' | 'stall' | 'tent' | 'stake' | 'grave' | 'bones';
+  | 'deadtree' | 'house' | 'well' | 'stall' | 'tent' | 'stake' | 'grave' | 'bones' | 'ritual';
 
 /** A static world object. `r` is the physical collider radius (may be smaller than the visual). */
 export interface Prop {
@@ -31,6 +31,16 @@ export interface EnemySpawn {
   enemyId: string;
   /** Creature level (from the region); 1 when absent. */
   level?: number;
+  /** Herd, village or ritual-circle center the creature keeps returning to. */
+  anchor?: Vec2;
+}
+
+/** A cultist summoning circle: the leader and his acolytes chant when a player comes near, then call a demon. */
+export interface RitualSite {
+  id: string;
+  x: number;
+  y: number;
+  level: number;
 }
 
 /** Named places that grant exploration XP the first time a player reaches them. */
@@ -80,6 +90,8 @@ export interface WorldData {
   zones?: WorldZone[];
   /** Zone index per tile (row-major, like `tiles`). */
   zoneMap?: Uint8Array;
+  /** Summoning circles of the cult (0.13). */
+  rituals?: RitualSite[];
 }
 
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'snow' | 'ash' | 'ruins';
@@ -626,5 +638,92 @@ export function generateWorld(seed: number, size = WORLD_SIZE): WorldData {
     }
   }
 
-  return { seed, width: W, height: H, tiles, props, spawn, enemySpawns, pois, portals, regions, zones, zoneMap };
+  // ---------------------------------------------------------------- 10) living world (0.13): herds, villagers, cult rituals
+  // placed after everything else so the earlier layout (and its random stream) stays as it was
+  const rituals: RitualSite[] = [];
+  {
+    const life = new Rng(seed ^ 0x13a1fe);
+    const clear = (x: number, y: number, pad: number) => {
+      const t = get(Math.floor(x), Math.floor(y));
+      return reachable(x, y) && t !== Tile.ShallowWater && t !== Tile.Ice && t !== Tile.Lava && !solidWithin(x, y, pad) && !inStructure(x, y);
+    };
+    // herds: deer and rabbits in the green regions, boars in forest and swamp, hares in the snow
+    const HERDS: Partial<Record<Biome, Array<[string, number, number]>>> = {
+      forest: [['deer', 3, 5], ['rabbit', 2, 3], ['boar', 1, 3]],
+      meadow: [['deer', 3, 6], ['rabbit', 2, 4], ['boar', 1, 2]],
+      ruins: [['rabbit', 2, 3], ['deer', 2, 4]],
+      swamp: [['boar', 2, 3], ['rabbit', 1, 2]],
+      snow: [['rabbit', 2, 3], ['deer', 2, 3]],
+    };
+    for (const z of zones) {
+      const table = HERDS[z.biome];
+      if (!table) continue;
+      const want = Math.round(9 * S * S) + 1;
+      let made = 0;
+      for (let tries = 0; made < want && tries < 4000; tries++) {
+        const x = life.range(8, W - 8);
+        const y = life.range(8, H - 8);
+        if (zoneOf(x, y) !== z || !clear(x, y, 1) || nearSite(x, y, 4) || Math.hypot(x - spawn.x, y - spawn.y) < 14) continue;
+        const [enemyId, lo, hi] = table[made % table.length]!;
+        const n = lo + Math.floor(life.next() * (hi - lo + 1));
+        const anchor = { x, y };
+        for (let k = 0; k < n; k++) {
+          const a = life.range(0, Math.PI * 2);
+          const r = life.range(0.6, 2.8);
+          const px = x + Math.cos(a) * r;
+          const py = y + Math.sin(a) * r;
+          if (!clear(px, py, 0.5)) continue;
+          enemySpawns.push({ x: px, y: py, enemyId, level: Math.min(z.maxLevel, z.minLevel + Math.floor(life.next() * 3)), anchor });
+        }
+        made++;
+      }
+    }
+    // villagers walking the streets of Pedravelha
+    const village = pois.find((p) => p.id === 'pedravelha');
+    if (village) {
+      const anchor = { x: village.x, y: village.y };
+      for (let k = 0, placed = 0; placed < 8 && k < 80; k++) {
+        const a = life.range(0, Math.PI * 2);
+        const r = life.range(2, 9);
+        const x = village.x + Math.cos(a) * r;
+        const y = village.y + Math.sin(a) * r;
+        if (!reachable(x, y) || solidWithin(x, y, 0.6)) continue;
+        enemySpawns.push({ x, y, enemyId: 'villager', level: 5, anchor });
+        placed++;
+      }
+    }
+    // summoning circles: the leader at the head of the sigil, three acolytes around it
+    const fires = props.filter((p) => p.kind === 'bonfire');
+    for (const zid of ['vaelmor', 'brejo', 'cinzas', 'juramento']) {
+      const z = zones.find((q) => q.id === zid);
+      if (!z) continue;
+      for (let tries = 0; tries < 6000; tries++) {
+        const x = Math.floor(life.range(10, W - 10)) + 0.5;
+        const y = Math.floor(life.range(10, H - 10)) + 0.5;
+        if (zoneOf(x, y) !== z || !clear(x, y, 4.5) || nearSite(x, y, 10)) continue;
+        if (Math.hypot(x - z.cx, y - z.cy) > 70 * S || fires.some((f) => Math.hypot(f.x - x, f.y - y) < 18)) continue;
+        let ok = true;
+        for (let oy = -4; oy <= 4 && ok; oy++) for (let ox = -4; ox <= 4 && ok; ox++) if (!clear(x + ox, y + oy, 0)) ok = false;
+        if (!ok) continue;
+        // the circle wipes the undergrowth inside it
+        for (let i = props.length - 1; i >= 0; i--) {
+          const p = props[i]!;
+          if (!p.solid && Math.hypot(p.x - x, p.y - y) < 4.2) props.splice(i, 1);
+        }
+        addProp({ kind: 'ritual', x, y, r: 0, size: 3.2, solid: false, v: life.next() });
+        const level = z.maxLevel - 1;
+        const anchor = { x, y };
+        rituals.push({ id: `ritual-${zid}`, x, y, level });
+        enemySpawns.push({ x, y: y - 3.4, enemyId: 'cult_leader', level, anchor });
+        for (let k = 0; k < 3; k++) {
+          const a = Math.PI / 2 + (k - 1) * 1.9;
+          enemySpawns.push({ x: x + Math.cos(a) * 3.3, y: y + Math.sin(a) * 3.3, enemyId: 'cultist', level: level - 1, anchor });
+        }
+        pois.push({ id: `ritual-${zid}`, name: 'Círculo de Invocação', x, y, r: 7, xp: 80 + z.minLevel * 5 });
+        break;
+      }
+    }
+  }
+
+  return { seed, width: W, height: H, tiles, props, spawn, enemySpawns, pois, portals, regions, zones, zoneMap, rituals };
 }

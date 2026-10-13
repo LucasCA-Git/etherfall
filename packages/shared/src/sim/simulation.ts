@@ -19,6 +19,7 @@ import { addStatus, expireStatuses } from '../combat/statuses';
 import { canAllocateTalent, cleanLoadout, dominantArchetype, talentBonus, unlockedSkills } from '../data/talents';
 import type { ActionDef } from '../data/actions';
 import type { CharacterSave } from '../net/save';
+import { LivingWorld } from './living';
 
 export interface SimulationOptions {
   world: WorldData;
@@ -47,11 +48,14 @@ export class Simulation implements SimContext {
   /** Items lying on the ground (enemy drops, chest contents, dropped by players). */
   readonly loot: GroundLoot[] = [];
   private nextLootId = 1;
+  /** Cult rituals (and other world scripts) of the living world. */
+  readonly living: LivingWorld;
 
   constructor(opts: SimulationOptions) {
     this.world = opts.world;
     this.rng = new Rng(opts.seed ?? opts.world.seed ^ 0x5eed);
     for (const p of this.world.props) if (p.solid) this.statics.insert({ x: p.x, y: p.y, r: p.r });
+    this.living = new LivingWorld(this.world.rituals ?? []);
     if (opts.spawnEnemies !== false) {
       this.world.enemySpawns.forEach((s, i) => this.spawnEnemy(s.enemyId, s.x, s.y, i, s.level ?? 1));
     }
@@ -109,6 +113,8 @@ export class Simulation implements SimContext {
 
   spawnEnemy(enemyId: string, x: number, y: number, spawnIndex = -1, level = 1): Entity {
     const e = createEnemy(this.nextId++, enemyId, { x, y }, this.tick, spawnIndex, level);
+    const anchor = spawnIndex >= 0 ? this.world.enemySpawns[spawnIndex]?.anchor : undefined;
+    if (anchor && e.ai) e.ai.anchor = { x: anchor.x, y: anchor.y };
     this.entities.set(e.id, e);
     return e;
   }
@@ -456,7 +462,8 @@ export class Simulation implements SimContext {
       const xp = Math.round(getEnemy(target.enemyId).xp * enemyXpMul(target.level));
       this.emit({ type: 'kill', killer: credit.id, victim: target.id, xp });
       this.grantXp(credit, xp, 'kill');
-      const drops = rollEnemyDrops(this.rng, target.enemyId, getEnemy(target.enemyId).xp, Math.max(target.level, Math.min(credit.level, target.level + 3)) + (getEnemy(target.enemyId).xp >= 400 ? 2 : 0), credit.classId);
+      // wildlife only gives XP (no armour inside a rabbit)
+      const drops = target.team === 2 ? [] : rollEnemyDrops(this.rng, target.enemyId, getEnemy(target.enemyId).xp, Math.max(target.level, Math.min(credit.level, target.level + 3)) + (getEnemy(target.enemyId).xp >= 400 ? 2 : 0), credit.classId);
       if (drops.length) this.scatterLoot(drops, target.pos.x, target.pos.y, credit.id);
     }
   }
@@ -543,6 +550,7 @@ export class Simulation implements SimContext {
     }
     this.processRespawns();
     if (this.loot.length) this.stepLoot();
+    this.living.step(this);
 
     this.tick++;
     const out = this.events;

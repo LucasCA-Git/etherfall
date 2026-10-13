@@ -40,6 +40,8 @@ export class Effects {
   private trees: Prop[];
   private bonfires: Prop[];
   private torches: Prop[];
+  /** Summoning circles: a slow, sick red pulse. */
+  private rituals: Prop[];
   private spikes: Array<{ x: number; y: number; dir: number; born: number; r: number }> = [];
   private warns: Array<{ x: number; y: number; r: number; born: number; until: number; color: RGB }> = [];
   /** Projectile id → action that fired it (for impact colors). */
@@ -62,6 +64,7 @@ export class Effects {
     this.trees = world.props.filter((p) => p.kind === 'tree' || p.kind === 'pine');
     this.bonfires = world.props.filter((p) => p.kind === 'bonfire');
     this.torches = world.props.filter((p) => p.kind === 'torch');
+    this.rituals = world.props.filter((p) => p.kind === 'ritual');
   }
 
   private isWater(x: number, y: number): boolean {
@@ -409,6 +412,36 @@ export class Effects {
             this.hud.message(ev.name, 'info');
           }
           break;
+        case 'speech': {
+          const who = byId.get(ev.id);
+          const mine = byId.get(me);
+          if (mine && Math.hypot(mine.x - ev.x, mine.y - ev.y) > 32) break;
+          this.overlay.speech(ev.id, ev.x, ev.y - 2, ev.text, Math.max(2.2, ev.ticks / 30));
+          if (who) this.hud.message(`${who.name}: “${ev.text}”`, who.enemyId === 'villager' ? 'info' : 'bad');
+          break;
+        }
+        case 'ritual': {
+          const mine = byId.get(me);
+          const near = mine && Math.hypot(mine.x - ev.x, mine.y - ev.y) < 40;
+          if (ev.phase === 'chant' && near) {
+            this.hud.toast('Um ritual de invocação começou — mate o Arauto antes que termine!');
+            this.tLights.push({ x: ev.x, y: ev.y, radius: 9, intensity: 1.4, color: [1, 0.2, 0.08], born: time, life: 2.5 });
+          } else if (ev.phase === 'summoned') {
+            this.particles.burst(90, ev.x, ev.y - 0.2, -Math.PI / 2, 1.4, 6, 5, 1.6, 0.12, [1, 0.3, 0.08], Mat.Magic, rand, { emis: 1, grav: -0.8 });
+            this.particles.burst(40, ev.x, ev.y, 0, Math.PI * 2, 6, 1, 1.4, 0.2, [0.25, 0.08, 0.05], Mat.Dust, rand, { grav: -0.2 });
+            this.tLights.push({ x: ev.x, y: ev.y, radius: 14, intensity: 3, color: [1, 0.25, 0.05], born: time, life: 3 });
+            this.pulses.push({ x: ev.x, y: ev.y, t0: time, r: 9 });
+            A.play('shockwave', ev.x, ev.y);
+            A.play('thunder', ev.x, ev.y, 0.9);
+            if (near) {
+              this.camera.addTrauma(0.8);
+              this.flash = 0.6;
+              this.flashColor = [0.25, 0.02, 0];
+              this.hud.toast('O DEMÔNIO DO ABISMO FOI INVOCADO');
+            }
+          } else if (ev.phase === 'broken' && near && mine) this.hud.message('O círculo de invocação se apagou.', 'good');
+          break;
+        }
         case 'fail':
           if (ev.id === me) {
             if (ev.reason === 'stamina') this.hud.flash('stamina');
@@ -665,6 +698,10 @@ export class Effects {
       if (t.x < view.x0 - 6 || t.x > view.x1 + 6 || t.y < view.y0 - 6 || t.y > view.y1 + 6) continue;
       const fl = 0.85 + 0.15 * Math.sin(time * 13 + t.v * 30) * Math.sin(time * 8.1 + t.v * 11);
       L.push({ x: t.x, y: t.y - 1.2, radius: 7.5, intensity: 1.8 * fl, color: [1, 0.6, 0.28] });
+    }
+    for (const c of this.rituals) {
+      if (c.x < view.x0 - 8 || c.x > view.x1 + 8 || c.y < view.y0 - 8 || c.y > view.y1 + 8) continue;
+      L.push({ x: c.x, y: c.y - 0.2, radius: 7, intensity: 1.1 + 0.35 * Math.sin(time * 1.7 + c.v * 6), color: [1, 0.18, 0.08] });
     }
     for (const l of this.tLights) {
       const k = 1 - (time - l.born) / l.life;

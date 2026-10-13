@@ -26,6 +26,16 @@ export interface EnemyDef {
   /** Ticks between attacks (min,max) — gives the player windows to punish. */
   attackCooldown: [number, number];
   respawnTicks: number;
+  /**
+   * Brain: 'hunter' (default monster), 'passive' wildlife that grazes and flees (and may fight back
+   * when hurt if it has attacks), 'villager' (wanders its village, flees monsters), 'cultist'
+   * (keeps to its ritual post until someone comes close or hits it).
+   */
+  behavior?: 'hunter' | 'passive' | 'villager' | 'cultist';
+  /** Team (default 1 = monsters; 0 = the players' side; 2 = wildlife, hunted by everyone). */
+  team?: number;
+  /** Passive creatures run from anything hostile closer than this. */
+  fleeRange?: number;
 }
 
 export const ENEMIES: Readonly<Record<string, EnemyDef>> = {

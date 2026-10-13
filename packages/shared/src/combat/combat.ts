@@ -345,6 +345,7 @@ export function resolveHit(
   const dmg = Math.max(1, Math.round(raw * (1 - absorb)));
   target.hp -= dmg;
   target.lastHitTick = ctx.tick;
+  target.lastHitBy = attacker.id;
   const dir = angleTo(from, target.pos);
   if (result === 'hit') {
     ctx.emit({ type: 'hit', attacker: attacker.id, target: target.id, amount: dmg, crit, x: target.pos.x, y: target.pos.y, dir, dtype: hit.type });

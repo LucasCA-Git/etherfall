@@ -1,8 +1,22 @@
 # ETHERFALL — Progresso
 
-_Última atualização: 12/10/2026 · Entrega 12 (0.12)_
+_Última atualização: 12/10/2026 · Entrega 13 (0.13)_
 
-## Novidades da 0.12 — mapa 3× com regiões por nível e vegetação do Flare
+## Novidades da 0.13 — mundo vivo
+- **Animais** (equipe neutra): ~85 cervos, ~60 coelhos e ~30 javalis em bandos pelas regiões verdes, no brejo e na neve
+  (nenhum nas Cinzas). Pastam (cabeça na grama), passeiam em volta do bando e **fogem** de jogadores e monstros;
+  quem chega **andando** chega mais perto do que quem corre. O **javali revida** quando apanha. Monstros não caçam animais.
+  Animais dão XP mas não deixam itens.
+- **Aldeões** em Pedravelha: passeiam pela praça, fogem de monstros e **conversam** com **F** (dicas sobre o mundo).
+- **Rituais de invocação** em 4 círculos (Bosque de Vaelmor, Brejo, Cinzas e Fortaleza): um **Arauto do Abismo** e três
+  **Cultistas** guardam um pentagrama aceso com velas. Ao chegar a ~13 m eles começam o **cântico** (falas em balão e no
+  registro, uma a cada 2,5 s). Se o cântico termina, o **Demônio do Abismo** surge no círculo (chefe, nível da região + 2).
+  **Matar o Arauto antes** rompe o círculo. Depois o círculo descansa 5 min e o ritual pode recomeçar.
+- Balões de fala sobre a cabeça de quem fala; modelos 3D novos de cervo (com galhada), javali (presas e crina) e coelho;
+  aldeões, cultistas, Arauto e Demônio usam os sprites do Flare com cores próprias.
+- O comportamento é calculado no servidor (`entities/enemyAI.ts`: pacífico, aldeão, cultista; `sim/living.ts`: rituais).
+
+## 0.12 — mapa 3× com regiões por nível e vegetação do Flare
 - **Mundo de 672 × 672 m** (9× a área) dividido em **8 regiões por nível**, separadas por cordilheiras com passagens
   abertas por estradas:
   | Região | Bioma | Nível |

@@ -105,7 +105,7 @@ export interface ActionState {
   connected: boolean;
 }
 
-export type AiMode = 'idle' | 'wander' | 'chase' | 'strafe' | 'return';
+export type AiMode = 'idle' | 'wander' | 'chase' | 'strafe' | 'return' | 'flee';
 
 export interface AiState {
   mode: AiMode;
@@ -120,6 +120,12 @@ export interface AiState {
   spawnIndex: number;
   /** Desired speed last tick — used to detect being stuck on obstacles. */
   lastSpeed: number;
+  /** Herd / village / ritual-circle anchor that wandering and fleeing keep returning to. */
+  anchor?: Vec2;
+  /** Tick until which a passive creature keeps running away. */
+  fleeUntil?: number;
+  /** Tick until which the creature stands still (a villager talking). */
+  pauseUntil?: number;
 }
 
 export interface ProjectileState {
@@ -182,6 +188,8 @@ export interface Entity {
   input: InputCommand;
   sprinting: boolean;
   lastHitTick: number;
+  /** Who landed the last hit (passive creatures, villagers and cultists react to it). */
+  lastHitBy?: number;
   respawnPoint: Vec2;
   /** XP progress inside the current level (lost into an essence mark on death). */
   xp: number;
@@ -247,7 +255,10 @@ export type SimEvent =
   | { type: 'bagFull'; id: number }
   | { type: 'chest'; id: number; prop: number; tier: number; x: number; y: number }
   | { type: 'equip'; id: number; slot: string; name: string }
-  | { type: 'imbue'; id: number; element: string; x: number; y: number };
+  | { type: 'imbue'; id: number; element: string; x: number; y: number }
+  /** Someone says a line (cult chant, villager talk); `ticks` = how long the bubble stays. */
+  | { type: 'speech'; id: number; text: string; ticks: number; x: number; y: number }
+  | { type: 'ritual'; site: string; phase: 'idle' | 'chant' | 'summoned' | 'broken'; x: number; y: number };
 
 /** An item lying on the ground: only its owner may take it until `freeAt`, it vanishes at `until`. */
 export interface GroundLoot {

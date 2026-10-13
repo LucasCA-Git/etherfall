@@ -43,6 +43,11 @@ const CREATURES: Record<string, SpriteLook> = {
   fire_dragon: { sheet: 'wyvern_fire', scale: 1.25 },
   frost_wyvern: { sheet: 'wyvern_water' },
   cursed_grave: { sheet: 'cursed_grave' },
+  // 0.13: the people of Pedravelha, the cult and what it calls up
+  villager: { sheet: 'hero_rogue_m', tint: [0.95, 0.85, 0.7] },
+  cultist: { sheet: 'hero_warlock_m', tint: [1.15, 0.55, 0.5] },
+  cult_leader: { sheet: 'hero_warlock_f', tint: [1.2, 0.5, 0.45], glow: [0.12, 0.02, 0.0] },
+  demon: { sheet: 'minotaur', scale: 1.45, tint: [1.35, 0.45, 0.35], glow: [0.22, 0.04, 0.0] },
 };
 
 /** Sheet for an entity, or null when it keeps its 3D rig (wolves, imps, vampires...). */
@@ -51,6 +56,7 @@ export function lookFor(e: EntitySnap): SpriteLook | null {
   let look: SpriteLook | undefined;
   if (e.kind === 'player') look = { sheet: `hero_${e.classId ?? 'vanguard'}_${e.gender === 'f' ? 'f' : 'm'}` };
   else if (e.enemyId === 'phantom') look = { sheet: 'hero_rogue_f', tint: [0.85, 0.65, 1.0], glow: [0.12, 0.05, 0.2] };
+  else if (e.enemyId === 'villager') look = { sheet: e.id % 2 ? 'hero_rogue_f' : 'hero_rogue_m', tint: [0.95, 0.85, 0.7] };
   else if (e.enemyId) look = CREATURES[e.enemyId];
   if (!look || !SHEETS[look.sheet] || !URLS[look.sheet]) return null;
   return sheetReady(look.sheet) ? look : null;
