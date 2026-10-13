@@ -169,10 +169,14 @@ await session('warlock', '&day=0.34', 'warlock-night');
   await page.waitForTimeout(500);
   // walk the Paladino arm on the canvas: ring → arm → skill node (Luz Sagrada) → title at 5 points
   for (const id of ['vg.r0', 'vg.paladin.0', 'vg.paladin.1a', 'vg.paladin.2', 'vg.paladin.3a', 'vg.paladin.4']) {
-    const pos = await page.evaluate((nid) => window.__etherfall.talents.nodeClientPos(nid), id);
-    await page.mouse.click(pos.x, pos.y);
-    // wait until the panel's own snapshot shows the node (the next click's adjacency check uses it)
-    await page.waitForFunction((nid) => (window.__etherfall.talents.me?.talents?.[nid] ?? 0) > 0, id, { timeout: 12000 }).catch(() => {});
+    // under heavy load a click can land while the panel redraws: retry it (at most 3 times)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const pos = await page.evaluate((nid) => window.__etherfall.talents.nodeClientPos(nid), id);
+      await page.mouse.click(pos.x, pos.y);
+      // wait until the panel's own snapshot shows the node (the next click's adjacency check uses it)
+      const ok = await page.waitForFunction((nid) => (window.__etherfall.talents.me?.talents?.[nid] ?? 0) > 0, id, { timeout: 8000 }).then(() => true).catch(() => false);
+      if (ok) break;
+    }
   }
   await page.waitForSelector('[data-equip="pal_light:a1"]', { timeout: 8000 }).catch(() => {});
   await page.click('[data-equip="pal_light:a1"]').catch(() => {});

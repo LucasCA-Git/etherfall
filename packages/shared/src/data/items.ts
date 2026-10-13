@@ -234,6 +234,26 @@ export function rollItem(rng: Rng, o: DropOptions): Item {
   return item;
 }
 
+/** Basic gear every new hero starts with (common, level 1): class weapon and off-hand plus a full set of armour. */
+export function starterKit(classId: ClassId): Partial<Record<ItemSlot, Item>> {
+  const caster = classId === 'arcanist' || classId === 'healer' || classId === 'warlock';
+  const ids = [
+    Object.values(ITEM_BASES).find((b) => b.slot === 'weapon' && b.classes?.includes(classId))?.id,
+    Object.values(ITEM_BASES).find((b) => b.slot === 'offhand' && b.classes?.includes(classId))?.id,
+    caster ? 'hood' : 'helm',
+    caster ? 'robe' : 'cuirass',
+    'gloves',
+    'greaves',
+    'boots',
+  ];
+  const kit: Partial<Record<ItemSlot, Item>> = {};
+  for (const id of ids) {
+    const b = id ? ITEM_BASES[id] : undefined;
+    if (b) kit[b.slot] = { uid: `start-${b.slot}`, base: b.id, rarity: 'common', level: 1, affixes: [], imbue: null, legend: null };
+  }
+  return kit;
+}
+
 /** Pick a rarity from weights (common → legendary). */
 export function rollRarity(rng: Rng, weights: readonly [number, number, number, number, number]): Rarity {
   const total = weights.reduce((a, b) => a + b, 0);

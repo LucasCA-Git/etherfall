@@ -1,6 +1,6 @@
 import { FLORA_KINDS, FLORA_ON, buildFlora, type FloraUniforms } from './flora';
 import * as THREE from 'three';
-import { Tile, hash2, type Prop, type WorldData } from '@etherfall/shared';
+import { Tile, hash2, summonSignOf, type Prop, type WorldData } from '@etherfall/shared';
 
 /**
  * The static world as real 3D geometry (terrain, rock cliffs, forests, castle, ruins),
@@ -318,6 +318,7 @@ export function buildWorld3D(world: WorldData): World3D {
   const ironMat = mat({ color: 0x1a1a1e, metalness: 0.6, roughness: 0.5 });
   const runeMat = mat({ color: 0x220000, emissive: 0xff2a10, emissiveIntensity: 2.4 });
   const waxMat = mat({ color: 0xcfc6b0, roughness: 0.7 });
+  const signMat = mat({ color: 0x221a08, emissive: 0xffc860, emissiveIntensity: 2.2 });
 
   // cliffs: one block per rock tile, taller deep inside rock masses
   const isRock = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || world.tiles[y * W + x] === Tile.Rock;
@@ -547,6 +548,26 @@ export function buildWorld3D(world: WorldData): World3D {
         break;
       }
       case 'bonfire': {
+        // the summon sign beside it: a small golden circle of runes burnt into the ground
+        {
+          const sg = summonSignOf(p);
+          const sx = sg.x;
+          const sz = sg.y * ZS;
+          const R = 0.55;
+          const N = 18;
+          for (let i = 0; i < N; i++) {
+            const a0 = (i / N) * Math.PI * 2;
+            const a1 = ((i + 1) / N) * Math.PI * 2;
+            const ax = sx + Math.cos(a0) * R, az = sz + Math.sin(a0) * R * ZS;
+            const bx = sx + Math.cos(a1) * R, bz = sz + Math.sin(a1) * R * ZS;
+            B.add('sign', box, signMat, ch, { x: (ax + bx) / 2, y: 0.03, z: (az + bz) / 2, sx: Math.hypot(bx - ax, bz - az) + 0.02, sy: 0.02, sz: 0.05, ry: Math.atan2(-(bz - az), bx - ax) }, false);
+          }
+          // a hand-drawn glyph inside: three strokes like a stylised figure
+          for (const [x0, z0, x1, z1] of [[0, -0.3, 0, 0.25], [-0.25, -0.05, 0.25, -0.05], [-0.18, 0.3, 0.18, 0.3]] as const) {
+            const ax = sx + x0, az = sz + z0 * ZS, bx = sx + x1, bz = sz + z1 * ZS;
+            B.add('sign', box, signMat, ch, { x: (ax + bx) / 2, y: 0.03, z: (az + bz) / 2, sx: Math.hypot(bx - ax, bz - az) + 0.03, sy: 0.02, sz: 0.045, ry: Math.atan2(-(bz - az), bx - ax) }, false);
+          }
+        }
         for (let i = 0; i < 4; i++) {
           const a = (i / 4) * Math.PI + 0.3;
           B.add('log', cyl8, logMat, ch, { x: cx, y: 0.12, z: cz, sx: 0.07, sy: 0.9, sz: 0.07, ry: a, rz: Math.PI / 2 - 0.25, rx: 0 }, false);

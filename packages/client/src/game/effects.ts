@@ -1,4 +1,4 @@
-import { ACTIONS, Tile, tileAt, type EntitySnap, type Prop, type SimEvent, type WorldData } from '@etherfall/shared';
+import { ACTIONS, SIGN_RANGE, Tile, summonSignOf, tileAt, type EntitySnap, type Prop, type SimEvent, type WorldData } from '@etherfall/shared';
 import type { AudioEngine } from '../audio/audio';
 import { projectileStyle } from '../render/actors';
 import { ELEMENT_RGB } from '../render/elements';
@@ -241,6 +241,15 @@ export class Effects {
           break;
         }
         case 'summon': {
+          if (ev.enemyId.startsWith('phantom_')) {
+            // a white-gold sign answered: the phantom rises in a column of light
+            this.particles.burst(40, ev.x, ev.y - 0.2, -Math.PI / 2, 0.8, 3, 4, 1.2, 0.07, [1, 0.88, 0.55], Mat.Magic, rand, { emis: 1, grav: -1.4 });
+            this.pulses.push({ x: ev.x, y: ev.y, t0: time, r: 1.4 });
+            this.tLights.push({ x: ev.x, y: ev.y - 0.8, radius: 7, intensity: 2, color: [1, 0.85, 0.5], born: time, life: 1.2 });
+            A.play('rest', ev.x, ev.y);
+            if (ev.ownerId === me) this.hud.message('Um fantasma aliado atendeu ao seu chamado.', 'good');
+            break;
+          }
           // fel portal: green fire bursts from the ground as the creature crawls out
           this.particles.burst(30, ev.x, ev.y - 0.3, -Math.PI / 2, 1.4, 4, 3, 0.9, 0.08, ev.enemyId === 'imp' ? [1, 0.55, 0.2] : [0.4, 1, 0.45], Mat.Magic, rand, { emis: 1, grav: -1.2 });
           this.pulses.push({ x: ev.x, y: ev.y, t0: time, r: ev.enemyId === 'voidguard' ? 2.4 : 1.2 });
@@ -478,7 +487,7 @@ export class Effects {
           this.ripple(e.x, e.y, time, 0.7);
           this.particles.burst(4, e.x, e.y, 0, Math.PI * 2, 1.2, 2, 0.4, 0.06, [0.6, 0.75, 0.8], Mat.Splash, rand, {});
         }
-        if (e.id === me || Math.hypot(e.x - this.audio.listenerX, e.y - this.audio.listenerY) < 10) this.audio.play(water ? 'stepWater' : 'stepGrass', e.x, e.y, e.id === me ? 0.8 : 0.4);
+        if (e.id === me || Math.hypot(e.x - this.audio.listenerX, e.y - this.audio.listenerY) < 7) this.audio.play(water ? 'stepWater' : 'stepGrass', e.x, e.y, e.id === me ? 0.6 : 0.2);
       }
     }
     // leaves shaken loose by the wind
@@ -551,7 +560,22 @@ export class Effects {
     return null;
   }
 
+  /** The summon sign beside the bonfire you stand near (for the [F] prompt). */
+  nearestSign(x: number, y: number): { x: number; y: number } | null {
+    for (const b of this.bonfires) {
+      if (Math.abs(b.x - x) > 5 || Math.abs(b.y - y) > 5) continue;
+      const s = summonSignOf(b);
+      if (Math.hypot(s.x - x, s.y - y) <= SIGN_RANGE) return s;
+    }
+    return null;
+  }
+
   drawFlames(out: InstanceBatch, time: number, view: { x0: number; y0: number; x1: number; y1: number }): void {
+    for (const b of this.bonfires) {
+      if (b.x < view.x0 - 3 || b.x > view.x1 + 3 || b.y < view.y0 - 3 || b.y > view.y1 + 3 || rand() > 0.06) continue;
+      const s = summonSignOf(b);
+      this.particles.spawn(s.x + (rand() - 0.5) * 0.8, s.y + (rand() - 0.5) * 0.5, 0.05, 0, 0, 0.6, 1.4, 0.04, [1, 0.85, 0.5], Mat.Magic, { emis: 1, grav: -0.35, drag: 0.6 });
+    }
     for (const t of this.torches) {
       if (t.x < view.x0 - 2 || t.x > view.x1 + 2 || t.y < view.y0 - 3 || t.y > view.y1 + 2) continue;
       for (let k = 0; k < 3; k++) {
@@ -691,6 +715,8 @@ export class Effects {
     if (essence) L.push({ x: essence.x, y: essence.y - 0.4, radius: 4.5, intensity: 0.9 + 0.3 * Math.sin(time * 4), color: [0.55, 1, 0.5] });
     for (const b of this.bonfires) {
       if (b.x < view.x0 - 8 || b.x > view.x1 + 8 || b.y < view.y0 - 8 || b.y > view.y1 + 8) continue;
+      const sg = summonSignOf(b);
+      L.push({ x: sg.x, y: sg.y - 0.1, radius: 2.2, intensity: 0.55 + 0.15 * Math.sin(time * 2 + b.x), color: [1, 0.82, 0.45] });
       const fl = 0.85 + 0.15 * Math.sin(time * 11) * Math.sin(time * 7.3 + 1);
       L.push({ x: b.x, y: b.y - 0.3, radius: 9, intensity: 1.9 * fl, color: [1, 0.58, 0.25] });
     }

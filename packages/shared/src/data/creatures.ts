@@ -135,6 +135,31 @@ const proj = (id: string, speed: number, radius: number, ttl: number, damage: nu
   id, speed, radius, ttl, hit: { range: 0, arc: Math.PI, damage, poise: 10, knockback: 1.5, scaling: {}, type, parryable: false, ...extra } as Hit,
 });
 
+/**
+ * Summon-sign phantoms (0.14): a hero of a random class answers the sign at a bonfire and fights at your side
+ * (offline help, like the white signs of Dark Souls). They use the classes' own moves; the AI picks by range.
+ */
+type Atk = EnemyDef['attacks'][number];
+const melee = (action: string, reach: number, weight = 3): Atk => ({ action, weight, minRange: 0, maxRange: reach });
+const shot = (action: string, weight = 3, min = 1.5, max = 12): Atk => ({ action, weight, minRange: min, maxRange: max });
+const PHANTOM_MOVES: Record<string, { attacks: Atk[]; preferredDist: number; hp: number; speed: number }> = {
+  vanguard: { attacks: [melee('longsword_light', 1.5), melee('vanguard_rising', 1.6, 1)], preferredDist: 1.1, hp: 520, speed: 4.4 },
+  arcanist: { attacks: [shot('arcanist_bolt', 4), melee('staff_light', 1.3, 1)], preferredDist: 6, hp: 340, speed: 4.4 },
+  healer: { attacks: [melee('staff_light', 1.3, 2), melee('healer_light', 4, 1)], preferredDist: 1.3, hp: 420, speed: 4.4 },
+  ranger: { attacks: [shot('bow_shot', 4), shot('ranger_volley', 1, 1.5, 9)], preferredDist: 7, hp: 360, speed: 4.8 },
+  rogue: { attacks: [melee('dagger_light', 1.1, 4), melee('rogue_venom', 1.15, 1)], preferredDist: 0.9, hp: 380, speed: 5 },
+  barbarian: { attacks: [melee('axe_light', 1.65, 4), melee('barb_warcry', 3, 0.5)], preferredDist: 1.2, hp: 560, speed: 4.5 },
+  warlock: { attacks: [shot('warlock_bolt', 4), melee('staff_light', 1.3, 1)], preferredDist: 6, hp: 360, speed: 4.4 },
+};
+export const PHANTOM_CLASSES = Object.keys(PHANTOM_MOVES);
+for (const [cls, m] of Object.entries(PHANTOM_MOVES)) {
+  CREATURE_ENEMIES[`phantom_${cls}`] = {
+    id: `phantom_${cls}`, name: 'Fantasma Aliado', hp: m.hp, poise: 45, radius: 0.4, mass: 1.1, speed: m.speed,
+    aggroRange: 11, leashRange: 16, preferredDist: m.preferredDist, xp: 0, absorb: { physical: 0.1, arcane: 0.1 },
+    attacks: m.attacks, attackCooldown: [12, 26], respawnTicks: 0,
+  };
+}
+
 export const CREATURE_ACTIONS: ActionDef[] = [
   // ---------- goblins ----------
   {

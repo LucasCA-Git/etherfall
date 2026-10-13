@@ -12,7 +12,7 @@ import {
   STAMINA_REGEN_DELAY_TICKS,
 } from '../data/curves';
 import { terrainSpeed } from '../physics/collision';
-import { bonfireSeats } from '../world/worldgen';
+import { bonfireSeats, SIGN_RANGE, summonSignOf } from '../world/worldgen';
 import { statusMoveMul } from '../combat/statuses';
 import type { SimContext } from '../sim/context';
 import { Btn, DT, type Entity } from '../sim/types';
@@ -64,7 +64,7 @@ export function updatePlayer(ctx: SimContext, e: Entity): void {
     e.action = null;
     if (pressed & Btn.Interact) return;
   }
-  if (pressed & Btn.Interact && !e.action && !tryPortal(ctx, e) && !tryChest(ctx, e) && !tryTalk(ctx, e)) tryRest(ctx, e);
+  if (pressed & Btn.Interact && !e.action && !tryPortal(ctx, e) && !tryChest(ctx, e) && !tryTalk(ctx, e) && !trySign(ctx, e)) tryRest(ctx, e);
 
   if (e.action) {
     const def = getAction(e.action.id);
@@ -180,6 +180,16 @@ function tryChest(ctx: SimContext, e: Entity): boolean {
 }
 export const CHEST_RANGE = 1.6;
 export const TALK_RANGE = 2.4;
+
+/** Touch the summon sign next to a bonfire: a phantom hero joins you. */
+function trySign(ctx: SimContext, e: Entity): boolean {
+  for (const p of ctx.world.props) {
+    if (p.kind !== 'bonfire' || Math.abs(p.x - e.pos.x) > 4 || Math.abs(p.y - e.pos.y) > 4) continue;
+    const s = summonSignOf(p);
+    if (Math.hypot(s.x - e.pos.x, s.y - e.pos.y) <= SIGN_RANGE) return ctx.summonPhantom(e, p);
+  }
+  return false;
+}
 
 /** Speak to the nearest villager in reach: they stop, turn and answer. */
 function tryTalk(ctx: SimContext, e: Entity): boolean {

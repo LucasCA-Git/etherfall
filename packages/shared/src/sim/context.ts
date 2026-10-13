@@ -43,4 +43,6 @@ export interface SimContext {
   readonly zones: Zone[];
   /** Open a chest prop for this player (once per character); returns false when nothing happened. */
   openChest(e: Entity, propId: number): boolean;
+  /** Touch a bonfire's summon sign: a phantom hero joins this player (replaces the previous one). */
+  summonPhantom(e: Entity, bonfire: { x: number; y: number }): boolean;
 }

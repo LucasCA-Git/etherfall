@@ -1,6 +1,23 @@
 # ETHERFALL — Progresso
 
-_Última atualização: 13/10/2026 · Entrega 13 (0.13.1)_
+_Última atualização: 13/10/2026 · Entrega 14 (0.14)_
+
+## Novidades da 0.14 — kit inicial, selo de invocação e leitura do combate
+- **Kit inicial:** todo herói começa com a arma e a mão secundária da classe e armadura completa (elmo/capuz,
+  couraça/túnica, manoplas, grevas e botas), comuns de nível 1, já equipadas. Personagens antigos sem nada equipado
+  recebem o kit ao entrar.
+- **Selo de invocação** (como no Dark Souls): ao lado de toda fogueira há um selo dourado no chão. **F** sobre ele
+  chama um **fantasma aliado** de classe e gênero aleatórios ("Fantasma de Aldric"…), no **nível da região da
+  fogueira**, com os golpes da própria classe (arqueiros e magos atiram de longe, a curandeira cura). Ele segue
+  você e luta por 10 minutos, até morrer ou até você cair. Tocar o selo de novo troca o fantasma. Por enquanto é offline.
+- **Direção dos sprites:** as fileiras das folhas do Flare estavam desenhadas um passo (45°) antes do nome delas.
+  Mirar para baixo mostrava o herói de lado; agora ele fica de frente, e todas as 8 direções batem com a mira.
+- **Ataques legíveis:** a área do golpe inimigo e o brilho de quem prepara o ataque são **vermelho-sangue**
+  (pulsando quando não dá para bloquear); o arco dos seus golpes é branco-gelo e bem mais forte.
+- **Contorno dos personagens:** um aro escuro de uma célula em volta de todo personagem no filtro ASCII, para que
+  não se misturem com a grama e as árvores, mesmo com células pequenas e contornos desligados.
+- **Sons no estilo Dark Souls II:** chuva como um chiado distante e abafado (sem o "zumbido" de antes) e passos que
+  são um baque surdo e discreto; passos de monstros só a menos de 7 m e mais baixos.
 
 ## 0.13.1 — fogueiras como refúgio, minimapa novo e guia
 - **Fogueira é refúgio:** nenhum monstro nasce a menos de 11 m de uma fogueira (vale também para a sala inicial das

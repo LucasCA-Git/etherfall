@@ -85,6 +85,8 @@ describe('0.11 items: in the world', () => {
   it('equip and unequip change the character; class gear is restricted', () => {
     const sim = new Simulation({ world: flatWorld(), spawnEnemies: false });
     const p = sim.addPlayer('Lia', 'vanguard', { x: 20, y: 20 });
+    p.equipment = {}; // without the starter kit (0.14) the numbers below stay simple
+    sim.gearChanged(p);
     const rng = new Rng(5);
     const chest: Item = { uid: 'c1', base: 'cuirass', rarity: 'epic', level: 1, affixes: [{ stat: 'maxHp', value: 0.2 }], imbue: null, legend: null };
     const bow = { ...rollItem(rng, { level: 1, rarity: 'rare' }), base: 'longbow' };
@@ -129,6 +131,8 @@ describe('0.11 items: in the world', () => {
     const fire = { id: 900, kind: 'bonfire' as const, x: 20, y: 18, r: 0.45, size: 0.6, solid: true, v: 0.5 };
     const sim = new Simulation({ world: flatWorld([fire]), spawnEnemies: false });
     const p = sim.addPlayer('Ana', 'vanguard', { x: 20, y: 20 });
+    p.equipment = {};
+    sim.gearChanged(p);
     const rng = new Rng(9);
     const sword = { ...rollItem(rng, { level: 1, rarity: 'common' }), base: 'longsword' };
     p.inventory!.push(sword, makeRune(rng, 'fire', 1));

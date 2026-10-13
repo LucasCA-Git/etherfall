@@ -56,6 +56,7 @@ export function lookFor(e: EntitySnap): SpriteLook | null {
   let look: SpriteLook | undefined;
   if (e.kind === 'player') look = { sheet: `hero_${e.classId ?? 'vanguard'}_${e.gender === 'f' ? 'f' : 'm'}` };
   else if (e.enemyId === 'phantom') look = { sheet: 'hero_rogue_f', tint: [0.85, 0.65, 1.0], glow: [0.12, 0.05, 0.2] };
+  else if (e.enemyId?.startsWith('phantom_')) look = { sheet: `hero_${e.enemyId.slice(8)}_${e.gender === 'f' ? 'f' : 'm'}`, tint: [1.2, 1.08, 0.8], glow: [0.16, 0.12, 0.04] };
   else if (e.enemyId === 'villager') look = { sheet: e.id % 2 ? 'hero_rogue_f' : 'hero_rogue_m', tint: [0.95, 0.85, 0.7] };
   else if (e.enemyId) look = CREATURES[e.enemyId];
   if (!look || !SHEETS[look.sheet] || !URLS[look.sheet]) return null;
@@ -161,7 +162,9 @@ export function disposeSprite(r: SpriteRig): void {
 
 /** Screen-direction angle (game coords, y down) → sheet row. */
 function rowFor(angle: number): number {
-  return ((Math.round((angle - Math.PI) / (Math.PI / 4)) % 8) + 8) % 8;
+  // the packed rows run one step counter-clockwise from their names (row "W" is drawn facing SW, "SW" faces S,
+  // checked frame by frame), so look up the row for the angle 45° further round
+  return ((Math.round((angle + Math.PI / 4 - Math.PI) / (Math.PI / 4)) % 8) + 8) % 8;
 }
 
 const CASTS = new Set(['cast', 'castSky', 'castRaise', 'castPlant', 'shout', 'trap']);

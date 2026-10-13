@@ -622,6 +622,7 @@ export class ActorLayer {
 
   private heroTint = new THREE.Color();
   private heroAdd = new THREE.Color();
+  private warnTint = new THREE.Color();
   private poseHero(r: SpriteRig, s: Slot, e: EntitySnap, anim: AnimState, f: ActorFrame, a: ReturnType<typeof actPhase>, flash: boolean, st: readonly string[], warn: number): void {
     const t = this.heroTint.setRGB(1, 1, 1);
     if (st.includes('slow')) t.multiply(SLOW_TINT);
@@ -632,8 +633,11 @@ export class ActorLayer {
     if (e.dead) t.multiplyScalar(0.55);
     const add = this.heroAdd.setRGB(0, 0, 0);
     if (flash) add.setRGB(0.6, 0.6, 0.6);
-    else if (warn > 0) add.setRGB(warn * 0.5, warn * 0.08, 0.02);
-    else if (st.includes('empower')) add.copy(EMPOWER).multiplyScalar(2);
+    else if (warn > 0) {
+      // winding up: the body glows blood red
+      add.setRGB(warn * 0.85, 0, 0);
+      t.multiply(this.warnTint.setRGB(1, 1 - warn * 0.6, 1 - warn * 0.6));
+    } else if (st.includes('empower')) add.copy(EMPOWER).multiplyScalar(2);
     const [ar, ag, ab] = f.ambient;
     const light = 0.8 + 0.4 * Math.min(1, Math.max(ar, ag, ab)) + 0.25 * Math.max(0, Math.min(1, f.sunLight)) + f.flash;
     r.root.position.y = a.id === 'barb_leap' && a.stage === 'active' ? Math.sin(Math.min(1, a.k) * Math.PI) * 1.1 : 0;
@@ -672,7 +676,7 @@ export class ActorLayer {
         m.emissive.copy(b.emissive);
         m.emissiveIntensity = dead ? 0 : b.emissiveIntensity * (1 + warn);
       } else if (warn > 0) {
-        m.emissive.setRGB(warn * 0.55, warn * 0.1, 0.02);
+        m.emissive.setRGB(warn * 0.9, 0, 0);
         m.emissiveIntensity = 1;
       } else if (stealth || empower) {
         m.emissive.copy(stealth ? STEALTH : EMPOWER);

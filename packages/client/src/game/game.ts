@@ -385,9 +385,11 @@ export class Game {
       for (const c of this.chests) if (!opened.includes(c.id) && Math.hypot(c.x - me.x, c.y - me.y) < 2.05 && (!b || Math.hypot(c.x - me.x, c.y - me.y) < Math.hypot(b.x - me.x, b.y - me.y))) chest = c;
       // TALK_RANGE (2.4) in playerControl.ts, a little under so the prompt never lies
       const folk = this.views.find((v) => v.enemyId === 'villager' && !v.dead && Math.hypot(v.x - me.x, v.y - me.y) < 2.3);
+      const sign = this.effects.nearestSign(me.x, me.y);
       if (portal) prompt = { x: portal.x, y: portal.y - 0.8, text: `[${key}] ${portal.name}` };
       else if (chest) prompt = { x: chest.x, y: chest.y - 0.8, text: `[${key}] Abrir ${CHEST_NAMES[Math.round(chest.size)] ?? 'baú'}` };
       else if (folk && (!b || Math.hypot(folk.x - me.x, folk.y - me.y) < Math.hypot(b.x - me.x, b.y - me.y))) prompt = { x: folk.x, y: folk.y + 1.1, text: `[${key}] Falar` };
+      else if (sign) prompt = { x: sign.x, y: sign.y - 0.6, text: `[${key}] Tocar o selo de invocação` };
       else if (b) prompt = { x: b.x, y: b.y - 0.6, text: `[${key}] Sentar na fogueira` };
     }
     // entering a new level region: a banner with its name and levels

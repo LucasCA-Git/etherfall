@@ -1,6 +1,6 @@
 # ETHERFALL — Guia e banco de dados
 
-Este guia reúne o que o jogo tem hoje (versão 0.13.1): classes, roteiro de níveis, criaturas, chefes, onde estão os itens
+Este guia reúne o que o jogo tem hoje (versão 0.14): classes, roteiro de níveis, criaturas, chefes, onde estão os itens
 e que equipamento usar em cada fase. Os números vêm do código (`packages/shared/src/data`). Se você mudar o código,
 mude este guia também.
 
@@ -15,6 +15,10 @@ mude este guia também.
   está lá dentro e, se entrarem na luz, voltam para o covil. Fogueira no meio do mato tem uma **tenda**. Animais ficam
   calmos perto do fogo. Sentar (**F**) recupera vida, vigor e mana e passa a ser seu ponto de renascer. Sentado,
   você também pode **redistribuir pontos** e **imbuir a arma** com runas.
+- **Selo de invocação:** o círculo dourado ao lado de cada fogueira. **F** sobre ele chama um fantasma aliado de
+  classe aleatória, no nível da região da fogueira, por 10 minutos. Use antes de um chefe.
+- **Kit inicial:** todo herói começa com arma, mão secundária e armadura comuns da classe. Troque peça por peça
+  conforme achar melhores.
 - **Morrer** deixa sua essência (o XP do nível atual) onde você caiu. Volte lá para recuperar. Se morrer de novo
   antes disso, perde a essência.
 - **Nível do inimigo:** o nome mostra "Nv". Ele fica **laranja** com 3 ou mais níveis acima do seu e **vermelho** com 6 ou mais.

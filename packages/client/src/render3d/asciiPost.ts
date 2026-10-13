@@ -442,7 +442,16 @@ void main() {
       }
     }
   }
-  if (an < n * 0.34) { o = vec4(0.0, 0.0, 0.0, 1.0); return; }
+  if (an < n * 0.34) {
+    // 0.14: a dark rim one cell wide around every character, so heroes and monsters never melt into the grass.
+    // A blank glyph here (alpha 0 < 1) wins over the world cell and shows the void colour.
+    for (int k = 0; k < 8; k++) {
+      ivec2 d = ivec2(k == 0 || k == 4 || k == 5 ? 1 : k == 1 || k == 6 || k == 7 ? -1 : 0, k == 2 || k == 4 || k == 6 ? 1 : k == 3 || k == 5 || k == 7 ? -1 : 0);
+      if (isActor(texelFetch(tScene, clamp((cell + d) * uSub + uSub / 2, ivec2(0), lim), 0).a)) { o = vec4(0.0); return; }
+    }
+    o = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
+  }
   vec3 ac = asum / an;
   float al = luma(ac);
   vec2 world = vec2(uView.x + (float(cell.x) + 0.5) * uView.z, uView.y - (float(cell.y) + 0.5) * uView.w);

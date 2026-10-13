@@ -87,7 +87,7 @@ npm run build:single   # gera o HTML único packages/client/dist/etherfall.html
 | Esquiva (invulnerável por um instante) | Espaço |
 | Correr | Shift |
 | Habilidades da classe | **Q, E, 1, 2, 3, 4** (e **R** para o Bruxo) |
-| Sentar na fogueira / usar portal / abrir baú / falar com aldeões | **F** |
+| Sentar na fogueira / usar portal / abrir baú / falar com aldeões / tocar o selo de invocação | **F** |
 | Inventário (equipar, desequipar, largar, imbuir com runas) | **I** |
 | Ficha de atributos | **C** |
 | Árvore de habilidades | **K** |
@@ -205,7 +205,7 @@ Um continente de 672 × 672 m em **8 regiões por nível** (mapa com **M**), lig
 | Terras de Cinza | 28–40 | lava e o **Covil do Dragão das Cinzas** |
 | Fortaleza do Juramento | 34–45 | segundo castelo → Forja Afundada |
 
-As criaturas têm nível (o nome mostra "Nv", em laranja/vermelho quando são perigosas para você); vida, dano e XP crescem com ele. Há fogueiras em todas as regiões e no meio das estradas. Cada uma é um **refúgio**: nenhum monstro nasce ou caça a 9 m dela, as que ficam no mato têm tenda e os animais ficam calmos por perto. O mundo também tem ~100 baús com itens do nível da região. Portais de masmorra não funcionam se você levou dano nos últimos 3 s.
+As criaturas têm nível (o nome mostra "Nv", em laranja/vermelho quando são perigosas para você); vida, dano e XP crescem com ele. Há fogueiras em todas as regiões e no meio das estradas. Cada uma tem um **selo de invocação** dourado (F chama um fantasma aliado de classe aleatória, no nível da região) e é um **refúgio**: nenhum monstro nasce ou caça a 9 m dela, as que ficam no mato têm tenda e os animais ficam calmos por perto. O mundo também tem ~100 baús com itens do nível da região. Portais de masmorra não funcionam se você levou dano nos últimos 3 s.
 - **Mundo vivo:** cervos, coelhos e javalis andam em bandos, pastam e fogem (chegue andando para não espantá-los; o javali revida). Aldeões passeiam por Pedravelha e conversam com **F**. Em quatro **Círculos de Invocação** cultistas recitam um ritual quando você se aproxima — mate o **Arauto do Abismo** antes que o cântico termine, ou enfrente o **Demônio do Abismo**.
 - **Clima:** começa seco e chove cerca de 30% do tempo, quase sempre garoa; tempestades com raios são raras. Os ciclos de dia e noite são iguais para todos no servidor.
 

@@ -115,10 +115,11 @@ function telegraph(ctx: ActorContext, e: EntitySnap): void {
   const danger = def.telegraph === 'danger' || !!def.shockwave;
   const prog = Math.min(1, e.at / Math.max(1, def.startup));
   const pulse = 0.5 + 0.5 * Math.sin(ctx.time * 18);
-  const col: RGB = e.team === 0 ? [0.35, 1.0, 0.5] : danger ? [1.0, 0.18 + pulse * 0.1, 0.08] : [1.0, 0.55, 0.12];
+  // enemy wind-ups are always a deep red (pulsing brighter when the blow can't be blocked)
+  const col: RGB = e.team === 0 ? [0.35, 1.0, 0.5] : danger ? [1.0, 0.02 + pulse * 0.06, 0.02] : [0.9, 0.04, 0.03];
   const arc = def.hit.arc >= Math.PI - 1e-3 || def.shockwave ? Math.PI : def.hit.arc;
   // Reach must be legible: offset sector origin along lunge direction is implicit in r.
-  ctx.out.push(Shape.Sector, e.x, e.y, r, r, col, Mat.Telegraph, { rot: e.adir, depthY: DECAL_DEPTH, param: prog, emis: danger ? 0.75 : 0.45, extra: arc });
+  ctx.out.push(Shape.Sector, e.x, e.y, r, r, col, Mat.Telegraph, { rot: e.adir, depthY: DECAL_DEPTH, param: prog, emis: danger ? 1 : 0.8, extra: arc });
 }
 
 function eyes(ctx: ActorContext, e: EntitySnap, dist: number, spread: number, color: RGB, emis: number): void {
@@ -256,7 +257,8 @@ export function drawActor(ctx: ActorContext, e: EntitySnap): void {
       const def = ACTIONS[e.action];
       if (def?.hit && e.at >= def.startup && e.at < def.startup + def.active && def.hit.arc < Math.PI) {
         const r = e.radius + def.hit.range;
-        ctx.out.push(Shape.Sector, e.x, e.y, r, r, e.team === 0 ? [0.9, 0.92, 1.0] : [1.0, 0.5, 0.35], Mat.Spark, { rot: e.adir, depthY: e.y - 0.6, param: 0.25, emis: 0.35, extra: def.hit.arc });
+        // yours: bright ice-white; theirs: blood red (0.14: both much easier to read)
+        ctx.out.push(Shape.Sector, e.x, e.y, r, r, e.team === 0 ? [0.75, 0.95, 1.0] : [1.0, 0.03, 0.02], Mat.Spark, { rot: e.adir, depthY: e.y - 0.6, param: 0.45, emis: e.team === 0 ? 0.85 : 0.9, extra: def.hit.arc });
       }
     }
   }

@@ -43,8 +43,9 @@ export class AudioEngine {
     this.windFilter = wind.filter;
     this.fireGain = this.loop(2500, 0, 'bandpass').gain;
     this.waterGain = this.loop(700, 0).gain;
-    this.rainGain = this.loop(1400, 0, 'bandpass').gain;
-    this.rainHiss = this.loop(5200, 0, 'highpass').gain;
+    // rain: a soft, distant wash (low-passed) with only a whisper of hiss on top — Dark Souls II style
+    this.rainGain = this.loop(850, 0, 'lowpass').gain;
+    this.rainHiss = this.loop(6500, 0, 'highpass').gain;
     this.music.attach(ctx, this.master);
   }
 
@@ -72,8 +73,8 @@ export class AudioEngine {
   ambience(wind: number, fire: number, water: number, rain = 0): void {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    this.rainGain?.gain.setTargetAtTime(rain * 0.11, t, 0.8);
-    this.rainHiss?.gain.setTargetAtTime(rain * 0.035, t, 0.8);
+    this.rainGain?.gain.setTargetAtTime(rain * 0.045, t, 1.2);
+    this.rainHiss?.gain.setTargetAtTime(rain * 0.006, t, 1.2);
     this.windGain?.gain.setTargetAtTime(0.04 + wind * 0.1, t, 0.5);
     this.windFilter?.frequency.setTargetAtTime(250 + wind * 600, t, 0.5);
     this.fireGain?.gain.setTargetAtTime(fire * 0.06 * (0.6 + Math.random() * 0.8), t, 0.05);
@@ -142,8 +143,9 @@ export class AudioEngine {
       case 'rest': tone(1.2, 220, 440, 'sine', 0.2); tone(1.2, 330, 660, 'sine', 0.15, 0.15); break;
       case 'telegraph': tone(0.25, 180, 140, 'sawtooth', 0.12); break;
       case 'telegraphDanger': tone(0.5, 110, 70, 'sawtooth', 0.3); tone(0.5, 165, 100, 'square', 0.12); break;
-      case 'stepGrass': noise(0.06, 1200, 0.7, 'bandpass', 0.12); break;
-      case 'stepWater': noise(0.12, 900, 1.2, 'bandpass', 0.25, 400); break;
+      // footsteps: a muffled heel thud and a faint scuff, felt more than heard
+      case 'stepGrass': noise(0.08, 320, 0.7, 'lowpass', 0.05); tone(0.07, 85, 55, 'sine', 0.035); noise(0.05, 2600, 0.8, 'bandpass', 0.008); break;
+      case 'stepWater': noise(0.14, 650, 0.9, 'lowpass', 0.07, 260); break;
       case 'fail': tone(0.12, 200, 160, 'square', 0.08); break;
       case 'ui': tone(0.08, 880, 880, 'sine', 0.1); break;
       case 'levelUp': tone(0.9, 293.7, 293.7, 'triangle', 0.22); tone(0.9, 349.2, 349.2, 'triangle', 0.18, 0.12); tone(1.4, 440, 440, 'triangle', 0.2, 0.24); tone(1.6, 587.3, 587.3, 'sine', 0.16, 0.36); break;

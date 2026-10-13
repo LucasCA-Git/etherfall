@@ -297,7 +297,7 @@ export function resolveHit(
   }
   raw *= 1 + statusPower(attacker, 'empower', ctx.tick);
   // creatures hit harder with their level (summons scale with their caster elsewhere)
-  if (attacker.kind === 'enemy' && attacker.team !== 0 && attacker.level > 1) raw *= enemyDmgMul(attacker.level);
+  if (attacker.kind === 'enemy' && (attacker.team !== 0 || attacker.enemyId?.startsWith('phantom_')) && attacker.level > 1) raw *= enemyDmgMul(attacker.level);
   if (melee && target.action && (target.action.id === 'parried' || target.action.id === 'guardbreak')) {
     raw *= RIPOSTE_MUL;
     crit = 'riposte';

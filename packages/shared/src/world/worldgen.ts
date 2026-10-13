@@ -109,6 +109,12 @@ export interface WorldZone {
 
 export const WORLD_SIZE = 672;
 
+/** The summon sign burnt into the ground beside every bonfire (south side, between the seats). */
+export function summonSignOf(b: { x: number; y: number }): { x: number; y: number } {
+  return { x: b.x + Math.cos(1.45) * 3.3, y: b.y + Math.sin(1.45) * 3.3 };
+}
+export const SIGN_RANGE = 0.85;
+
 /** Bonfires are sanctuaries: no creature spawns or hunts inside this radius (m). */
 export const SAFE_RADIUS = 9;
 const fireCache = new WeakMap<WorldData, Prop[]>();
